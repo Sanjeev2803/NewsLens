@@ -1,15 +1,28 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import ParticleField from "./ParticleField";
 import OGTitle from "./OGTitle";
+import RasenganTrail from "./RasenganTrail";
+import LeafGate from "./LeafGate";
 
 export default function HeroSection() {
+  const [leafOpen, setLeafOpen] = useState(false);
+  const handleEnterArena = useCallback(() => setLeafOpen(true), []);
+  const handleGateComplete = useCallback(() => setLeafOpen(false), []);
+
   return (
-    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 overflow-hidden">
+    <section
+      id="hero-section"
+      className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 overflow-hidden"
+    >
       {/* Particle background */}
       <ParticleField />
+
+      {/* Rasengan cursor trail */}
+      <RasenganTrail />
 
       {/* Radial glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(255,107,0,0.08),transparent_60%)]" />
@@ -19,7 +32,7 @@ export default function HeroSection() {
         {/* Kalki-style cinematic title forge */}
         <OGTitle />
 
-        {/* Subtitle fades in after title locks (8s) */}
+        {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -36,37 +49,17 @@ export default function HeroSection() {
           transition={{ duration: 0.8, delay: 6 }}
           className="mt-10 flex gap-4"
         >
-          <Button size="lg">Enter the Arena</Button>
+          <Button size="lg" onClick={handleEnterArena}>Enter the Arena</Button>
           <Button variant="secondary" size="lg">
             Learn More
           </Button>
         </motion.div>
-
-        {/* Floating stats */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 6.5 }}
-          className="mt-16 grid grid-cols-3 gap-8 md:gap-16"
-        >
-          {[
-            { value: "50K+", label: "Articles Analyzed" },
-            { value: "Real-time", label: "Verification" },
-            { value: "100%", label: "Open Source" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <p className="text-2xl md:text-3xl font-brand text-chakra-orange">
-                {stat.value}
-              </p>
-              <p className="text-xs md:text-sm text-mist-gray mt-1 font-heading">
-                {stat.label}
-              </p>
-            </div>
-          ))}
-        </motion.div>
       </div>
 
-      {/* Bottom scroll indicator */}
+      {/* Leaf Gate Transition */}
+      <LeafGate isOpen={leafOpen} onComplete={handleGateComplete} />
+
+      {/* Scroll indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

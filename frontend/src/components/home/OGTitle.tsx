@@ -296,7 +296,7 @@ function MorphingLetter({
         className={`${fontClasses} relative`}
         style={{
           fontFamily: displayFont,
-          fontWeight: 900,
+          fontWeight: 500,
           backgroundImage: isFullyLocked ? METAL_GRADIENT_BRIGHT : METAL_GRADIENT,
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
@@ -348,7 +348,7 @@ function MorphingLetter({
             className={`absolute inset-0 pointer-events-none ${fontClasses}`}
             style={{
               fontFamily: "'Cinzel', serif",
-              fontWeight: 900,
+              fontWeight: 500,
               backgroundImage: `linear-gradient(135deg, ${ACCENT_BLUE}, ${ACCENT_GOLD}, ${ACCENT_BLUE}, ${ACCENT_GOLD})`,
               backgroundSize: "300% 300%",
               WebkitBackgroundClip: "text",
@@ -393,7 +393,7 @@ function MorphingLetter({
           className={`absolute inset-0 ${fontClasses} pointer-events-none`}
           style={{
             fontFamily: "'Cinzel', serif",
-            fontWeight: 900,
+            fontWeight: 500,
             WebkitTextStroke: "0.5px rgba(255,215,0,0.1)",
             WebkitTextFillColor: "transparent",
             filter: "blur(3px)",
