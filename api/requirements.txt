@@ -1,0 +1,42 @@
+# API Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.18
+
+# Database
+supabase==2.11.0
+
+# Cache
+redis==5.2.1
+
+# Scrapers
+feedparser==6.0.11
+praw==7.8.1
+httpx==0.28.1
+beautifulsoup4==4.12.3
+
+# NLP / Analysis
+vaderSentiment==3.3.2
+transformers==4.47.1
+torch==2.5.1
+spacy==3.8.3
+bertopic==0.16.4
+scikit-learn==1.6.0
+
+# AI
+anthropic==0.40.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.10.3
+pydantic-settings==2.7.0
+apscheduler==3.10.4
+
+# Email
+resend==2.7.0
+
+# Image generation
+satori==0.0.3
+
+# WebSocket
+python-socketio==5.11.4

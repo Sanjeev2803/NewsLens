@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Cinzel:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+Devanagari:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');
+
+@import "tailwindcss";
+
+/* ── Tailwind v4 Theme ── */
+@theme inline {
+  /* Colors */
+  --color-chakra-orange: #FF6B00;
+  --color-chakra-orange-light: #FF8C33;
+  --color-chakra-orange-dark: #CC5500;
+  --color-sharingan-red: #E63946;
+  --color-rasengan-blue: #00B4D8;
+  --color-sage-green: #2DC653;
+  --color-amaterasu-purple: #7B2FBE;
+  --color-scroll-cream: #F5E6C8;
+  --color-shadow-dark: #0A0A0F;
+  --color-ink-black: #1A1A2E;
+  --color-mist-gray: #8B8BA3;
+  --color-background: #0A0A0F;
+  --color-foreground: #F5E6C8;
+
+  /* Fonts */
+  --font-brand: 'Black Ops One', 'Noto Sans JP', system-ui, sans-serif;
+  --font-title: 'Cinzel', 'Noto Sans JP', serif;
+  --font-heading: 'Rajdhani', 'Zen Kaku Gothic New', 'Noto Sans JP', system-ui, sans-serif;
+  --font-body: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-jp: 'Noto Sans JP', 'Zen Kaku Gothic New', sans-serif;
+
+  /* Spacing (8px grid) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 8px 48px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px rgba(255, 107, 0, 0.3);
+  --shadow-glow-breaking: 0 0 30px rgba(230, 57, 70, 0.5);
+}
+
+/* ── Base Styles ── */
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* Dark Mode — Itachi Theme */
+html.dark body {
+  background: #0A0A0F;
+  color: #F5E6C8;
+}
+
+/* Light Mode — Hokage Theme */
+html.light body {
+  background: #FFF8EE;
+  color: #1a0a0a;
+}
+
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-ink-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-mist-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-chakra-orange);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(255, 107, 0, 0.3);
+  color: var(--color-scroll-cream);
+}
+
+/* ── Focus Ring ── */
+:focus-visible {
+  outline: 2px solid var(--color-chakra-orange);
+  outline-offset: 2px;
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Utility Classes ── */
+.text-gradient-orange {
+  background: linear-gradient(135deg, #FF6B00, #FF8C33);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #00B4D8, #48CAE4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glow-orange {
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.3);
+}
+
+.glow-red {
+  box-shadow: 0 0 30px rgba(230, 57, 70, 0.5);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(0, 180, 216, 0.3);
+}
+
+/* ── Animations ── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 107, 0, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(255, 107, 0, 0.5); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hand-seal {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(0.9); }
+  50% { transform: rotate(180deg) scale(1); }
+  75% { transform: rotate(270deg) scale(0.9); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-hand-seal { animation: hand-seal 1.5s ease-in-out infinite; }
+
+/* ── Skip to Content (a11y) ── */
+.skip-to-content {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.skip-to-content:focus {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  padding: 16px 24px;
+  background: var(--color-chakra-orange);
+  color: var(--color-shadow-dark);
+  font-weight: 700;
+  z-index: 9999;
+}
