@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { Timeline } from "@/components/ui/timeline";
+import DisplayCards from "@/components/ui/display-cards";
+import { Flame, Zap, Clock, FileText, Newspaper, MessageCircle } from "lucide-react";
 
 /* ══════════════════════════════════════════════
    TYPES
@@ -139,15 +142,34 @@ function SharinganLoader() {
 /* ══════════════════════════════════════════════
    ARTICLE RANK SYSTEM — based on freshness
    ══════════════════════════════════════════════ */
-function getArticleRank(publishedAt: string): { label: string; color: string; borderColor: string; bgColor: string; glow: string } {
+function getArticleRank(publishedAt: string): { label: string; sub: string; color: string; borderColor: string; bgColor: string; glow: string; icon: string } {
   const ageMs = Date.now() - new Date(publishedAt).getTime();
   const hours = ageMs / (1000 * 60 * 60);
 
-  if (hours < 1) return { label: "BREAKING", color: "#FF2222", borderColor: "border-red-500/50", bgColor: "bg-red-500/10", glow: "shadow-[0_0_12px_rgba(255,34,34,0.3)]" };
-  if (hours < 3) return { label: "FRESH", color: "#FF8800", borderColor: "border-orange-500/40", bgColor: "bg-orange-500/10", glow: "shadow-[0_0_8px_rgba(255,136,0,0.2)]" };
-  if (hours < 12) return { label: "RECENT", color: "#3388FF", borderColor: "border-blue-500/30", bgColor: "bg-blue-500/10", glow: "" };
-  return { label: "FILED", color: "#666680", borderColor: "border-gray-600/20", bgColor: "bg-gray-600/10", glow: "" };
+  if (hours < 1) return { label: "S-RANK", sub: "BREAKING", color: "#FF2222", borderColor: "border-red-500/50", bgColor: "bg-red-500/10", glow: "shadow-[0_0_16px_rgba(255,34,34,0.4)]", icon: "\u{1F525}" };
+  if (hours < 3) return { label: "A-RANK", sub: "FRESH", color: "#FF8800", borderColor: "border-orange-500/40", bgColor: "bg-orange-500/10", glow: "shadow-[0_0_10px_rgba(255,136,0,0.25)]", icon: "\u{26A1}" };
+  if (hours < 12) return { label: "B-RANK", sub: "RECENT", color: "#3388FF", borderColor: "border-blue-500/30", bgColor: "bg-blue-500/10", glow: "", icon: "\u{1F4DC}" };
+  return { label: "C-RANK", sub: "FILED", color: "#666680", borderColor: "border-gray-600/20", bgColor: "bg-gray-600/10", glow: "", icon: "\u{1F4C4}" };
 }
+
+/* Category-themed gradient placeholders for no-image cards */
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  general: "from-sharingan-red/20 via-[#1a0a0a] to-[#0a0a10]",
+  nation: "from-amaterasu-purple/20 via-[#0e0a1a] to-[#0a0a10]",
+  world: "from-rasengan-blue/20 via-[#0a0a1a] to-[#0a0a10]",
+  sports: "from-sage-green/20 via-[#0a1a0a] to-[#0a0a10]",
+  entertainment: "from-chakra-orange/20 via-[#1a0e0a] to-[#0a0a10]",
+  technology: "from-cyan-500/20 via-[#0a1a1a] to-[#0a0a10]",
+  business: "from-yellow-500/20 via-[#1a1a0a] to-[#0a0a10]",
+  science: "from-emerald-500/20 via-[#0a1a10] to-[#0a0a10]",
+  health: "from-pink-500/20 via-[#1a0a10] to-[#0a0a10]",
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  general: "\u{1F5DE}", nation: "\u{1F3EF}", world: "\u{1F30D}", sports: "\u{26BD}",
+  entertainment: "\u{1F3AC}", technology: "\u{1F4BB}", business: "\u{1F4C8}",
+  science: "\u{1F52C}", health: "\u{1F3E5}",
+};
 
 /* ══════════════════════════════════════════════
    CONSTANTS
@@ -477,14 +499,16 @@ function NarutoChatbot({ lang, onSpeak }: { lang: string; onSpeak: (fn: (text: s
 /* ══════════════════════════════════════════════
    FEATURED HERO CARD — First article, dramatic layout
    ══════════════════════════════════════════════ */
-function FeaturedCard({ article, userLang, onVoiceRead }: { article: Article; userLang: string; onVoiceRead: (text: string) => void }) {
+function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { article: Article; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string }) {
   const [imgErr, setImgErr] = useState(false);
   const rank = getArticleRank(article.publishedAt);
   const hasImg = article.image && !imgErr;
   const mouseX = useMotionValue(0.5);
   const mouseY = useMotionValue(0.5);
-  const rotateX = useTransform(mouseY, [0, 1], [2, -2]);
-  const rotateY = useTransform(mouseX, [0, 1], [-2, 2]);
+  const rotateX = useTransform(mouseY, [0, 1], [3, -3]);
+  const rotateY = useTransform(mouseX, [0, 1], [-3, 3]);
+  const catGradient = CATEGORY_GRADIENTS[currentCategory || "general"] || CATEGORY_GRADIENTS.general;
+  const catIcon = CATEGORY_ICONS[currentCategory || "general"] || "\u{1F5DE}";
 
   return (
     <motion.div
@@ -496,9 +520,9 @@ function FeaturedCard({ article, userLang, onVoiceRead }: { article: Article; us
         mouseY.set((e.clientY - rect.top) / rect.height);
       }}
       onMouseLeave={() => { mouseX.set(0.5); mouseY.set(0.5); }}
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0, y: 40, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {/* Background Image */}
       <div className="relative aspect-[2.2/1] md:aspect-[3/1]">
@@ -516,8 +540,11 @@ function FeaturedCard({ article, userLang, onVoiceRead }: { article: Article; us
             <div className="absolute inset-0 bg-gradient-to-r from-[#08080d]/80 via-transparent to-[#08080d]/60" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a12] via-[#12121e] to-[#0a0a12] flex items-center justify-center">
-            <SharinganEye size={120} spin className="opacity-[0.06]" />
+          <div className={`absolute inset-0 bg-gradient-to-br ${catGradient} flex items-center justify-center`}>
+            <div className="relative">
+              <span className="text-7xl opacity-15">{catIcon}</span>
+              <SharinganEye size={100} spin className="absolute inset-0 m-auto opacity-[0.04]" />
+            </div>
           </div>
         )}
 
@@ -536,13 +563,15 @@ function FeaturedCard({ article, userLang, onVoiceRead }: { article: Article; us
 
         {/* Content overlaid */}
         <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
-          {/* Rank badge */}
+          {/* Rank badge — Naruto mission rank */}
           <div className="flex items-center gap-3 mb-3">
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${rank.bgColor} border ${rank.borderColor} ${rank.glow}`}>
-              {rank.label === "BREAKING" && (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${rank.bgColor} border ${rank.borderColor} ${rank.glow} backdrop-blur-sm`}>
+              {rank.label === "S-RANK" && (
                 <motion.div className="w-2 h-2 rounded-full" style={{ backgroundColor: rank.color }} animate={{ scale: [1, 1.5, 1], opacity: [1, 0.4, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />
               )}
+              <span className="text-[9px]">{rank.icon}</span>
               <span className="text-[10px] font-heading font-bold tracking-widest" style={{ color: rank.color }}>{rank.label}</span>
+              <span className="text-[8px] font-mono tracking-wider opacity-60" style={{ color: rank.color }}>{rank.sub}</span>
             </div>
             <span className="text-[11px] font-mono text-mist-gray/50">{article.source.name}</span>
             <span className="text-[11px] font-mono text-mist-gray/30">{timeAgo(article.publishedAt)}</span>
@@ -590,24 +619,26 @@ function FeaturedCard({ article, userLang, onVoiceRead }: { article: Article; us
 /* ══════════════════════════════════════════════
    NEWS CARD — Vertical, transforming, never-before-seen
    ══════════════════════════════════════════════ */
-function NewsCard({ article, index, userLang, onVoiceRead }: { article: Article; index: number; userLang: string; onVoiceRead: (text: string) => void }) {
+function NewsCard({ article, index, userLang, onVoiceRead, currentCategory }: { article: Article; index: number; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string }) {
   const [imgErr, setImgErr] = useState(false);
   const [hovered, setHovered] = useState(false);
   const rank = getArticleRank(article.publishedAt);
   const hasImg = article.image && !imgErr;
   const freshness = chakraLevel(article.publishedAt);
+  const catGradient = CATEGORY_GRADIENTS[currentCategory || "general"] || CATEGORY_GRADIENTS.general;
+  const catIcon = CATEGORY_ICONS[currentCategory || "general"] || "\u{1F5DE}";
 
   return (
     <motion.div
-      className="group relative flex flex-col rounded-xl overflow-hidden transition-all duration-300
+      className="group relative flex flex-col rounded-xl overflow-hidden
         bg-[#0a0a10]/90 backdrop-blur-sm
         border border-white/[0.04]
         hover:border-sharingan-red/25
         hover:shadow-[0_8px_30px_rgba(0,0,0,0.4),0_0_20px_rgba(204,0,0,0.08)]"
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.06 }}
-      whileHover={{ y: -5, transition: { duration: 0.25 } }}
+      initial={{ opacity: 0, y: 30, scale: 0.95, filter: "blur(6px)" }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+      whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.25, ease: "easeOut" } }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
     >
@@ -628,18 +659,25 @@ function NewsCard({ article, index, userLang, onVoiceRead }: { article: Article;
             <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a10]/40 via-transparent to-transparent" />
           </>
         ) : (
-          /* No-image placeholder — Sharingan pattern */
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0c0c16] via-[#10101c] to-[#0a0a12] flex items-center justify-center">
-            <SharinganEye size={50} className="opacity-[0.08]" />
+          /* No-image — category-themed gradient with icon */
+          <div className={`absolute inset-0 bg-gradient-to-br ${catGradient} flex items-center justify-center`}>
+            <div className="relative">
+              <span className="text-4xl opacity-20">{catIcon}</span>
+              <SharinganEye size={40} className="absolute inset-0 m-auto opacity-[0.04]" />
+            </div>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#0a0a10_70%)]" />
+            {/* Kunai slash decoration */}
+            <div className="absolute top-3 right-3 w-8 h-[1px] bg-gradient-to-r from-transparent to-white/10 rotate-[-30deg]" />
+            <div className="absolute bottom-3 left-3 w-6 h-[1px] bg-gradient-to-l from-transparent to-white/10 rotate-[-30deg]" />
           </div>
         )}
 
-        {/* Rank badge — top left */}
-        <div className={`absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-md ${rank.bgColor} border ${rank.borderColor} backdrop-blur-sm ${rank.glow}`}>
-          {rank.label === "BREAKING" && (
+        {/* Rank badge — Naruto mission rank */}
+        <div className={`absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 rounded-lg ${rank.bgColor} border ${rank.borderColor} backdrop-blur-sm ${rank.glow}`}>
+          {rank.label === "S-RANK" && (
             <motion.div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rank.color }} animate={{ scale: [1, 1.6, 1], opacity: [1, 0.3, 1] }} transition={{ duration: 0.7, repeat: Infinity }} />
           )}
+          <span className="text-[7px]">{rank.icon}</span>
           <span className="text-[8px] font-heading font-bold tracking-[0.15em]" style={{ color: rank.color }}>{rank.label}</span>
         </div>
 
@@ -940,6 +978,245 @@ function SocialPulse({ posts, platforms }: { posts: SocialPost[]; platforms: str
 }
 
 /* ══════════════════════════════════════════════
+   UNIFIED NEWS TIMELINE — 21st.dev Aceternity Timeline
+   Merges news articles + social posts chronologically
+   ══════════════════════════════════════════════ */
+interface TimelineItem {
+  type: "article" | "social";
+  time: Date;
+  data: Article | SocialPost;
+}
+
+function formatTimeSpecific(d: Date): string {
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  if (isToday) return `Today ${time}`;
+  if (isYesterday) return `Yesterday ${time}`;
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${time}`;
+}
+
+function groupByHour(items: TimelineItem[]): { label: string; items: TimelineItem[] }[] {
+  const groups: Record<string, TimelineItem[]> = {};
+  const order: string[] = [];
+
+  for (const item of items) {
+    const d = item.time;
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+
+    // Round to the hour for grouping
+    const hourStr = d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true });
+    let label: string;
+    if (isToday) label = `Today, ${hourStr}`;
+    else if (isYesterday) label = `Yesterday, ${hourStr}`;
+    else label = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${hourStr}`;
+
+    if (!groups[label]) {
+      groups[label] = [];
+      order.push(label);
+    }
+    groups[label].push(item);
+  }
+
+  return order.map((label) => ({ label, items: groups[label] }));
+}
+
+function NewsTimeline({
+  articles,
+  socialPosts,
+  userLang,
+  onVoiceRead,
+  currentCategory,
+}: {
+  articles: Article[];
+  socialPosts: SocialPost[];
+  userLang: string;
+  onVoiceRead: (text: string) => void;
+  currentCategory: string;
+}) {
+  // Merge articles + social posts into a single chronological list
+  const merged: TimelineItem[] = [
+    ...articles.map((a) => ({
+      type: "article" as const,
+      time: new Date(a.publishedAt),
+      data: a,
+    })),
+    ...socialPosts.slice(0, 8).map((p) => ({
+      type: "social" as const,
+      time: new Date(p.timestamp),
+      data: p,
+    })),
+  ].sort((a, b) => b.time.getTime() - a.time.getTime());
+
+  const groups = groupByHour(merged);
+
+  // Build rank icon for display cards
+  const rankIcon = (label: string) => {
+    if (label === "S-RANK") return <Flame className="size-4 text-red-400" />;
+    if (label === "A-RANK") return <Zap className="size-4 text-orange-400" />;
+    if (label === "B-RANK") return <Clock className="size-4 text-blue-400" />;
+    return <FileText className="size-4 text-gray-400" />;
+  };
+
+  const rankColors: Record<string, { icon: string; title: string; bg: string }> = {
+    "S-RANK": { icon: "bg-red-900", title: "text-red-400", bg: "border-red-500/30" },
+    "A-RANK": { icon: "bg-orange-900", title: "text-orange-400", bg: "border-orange-500/30" },
+    "B-RANK": { icon: "bg-blue-900", title: "text-blue-400", bg: "border-blue-500/30" },
+    "C-RANK": { icon: "bg-gray-800", title: "text-gray-400", bg: "border-gray-600/30" },
+  };
+
+  const timelineData = groups.map((group) => {
+    // Separate top 3 items for DisplayCards stack, rest go into regular grid
+    const topItems = group.items.slice(0, 3);
+    const restItems = group.items.slice(3);
+
+    const displayCardData = topItems.map((item, i) => {
+      const exactTime = formatTimeSpecific(item.time);
+
+      if (item.type === "article") {
+        const article = item.data as Article;
+        const rank = getArticleRank(article.publishedAt);
+        const colors = rankColors[rank.label] || rankColors["C-RANK"];
+        const stackClass = i === 0
+          ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
+          : i === 1
+          ? "[grid-area:stack] translate-x-12 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
+          : "[grid-area:stack] translate-x-24 translate-y-20 hover:translate-y-10";
+
+        return {
+          icon: rankIcon(rank.label),
+          title: rank.label,
+          description: article.title.length > 50 ? article.title.slice(0, 50) + "..." : article.title,
+          date: exactTime,
+          iconClassName: colors.icon,
+          titleClassName: colors.title,
+          className: `${stackClass} ${colors.bg} cursor-pointer`,
+        };
+      } else {
+        const post = item.data as SocialPost;
+        const stackClass = i === 0
+          ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
+          : i === 1
+          ? "[grid-area:stack] translate-x-12 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
+          : "[grid-area:stack] translate-x-24 translate-y-20 hover:translate-y-10";
+
+        return {
+          icon: <MessageCircle className="size-4 text-cyan-300" />,
+          title: post.platform.charAt(0).toUpperCase() + post.platform.slice(1),
+          description: post.title.length > 50 ? post.title.slice(0, 50) + "..." : post.title,
+          date: exactTime,
+          iconClassName: "bg-cyan-900",
+          titleClassName: "text-cyan-400",
+          className: `${stackClass} border-cyan-500/20 cursor-pointer`,
+        };
+      }
+    });
+
+    return {
+      title: group.label,
+      content: (
+        <div className="pb-8">
+          {/* Stacked DisplayCards for top items */}
+          {displayCardData.length > 0 && (
+            <div className="mb-6">
+              <DisplayCards cards={displayCardData} />
+            </div>
+          )}
+
+          {/* Remaining items in grid */}
+          {restItems.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              {restItems.map((item, i) => {
+                const exactTime = formatTimeSpecific(item.time);
+                if (item.type === "article") {
+                  const article = item.data as Article;
+                  const rank = getArticleRank(article.publishedAt);
+                  return (
+                    <div key={`tl-rest-art-${article.url}-${i}`} className="relative">
+                      <div className="absolute -top-2 right-3 z-10 px-2 py-0.5 rounded-full bg-[#0a0a10] border border-white/[0.06]">
+                        <span className="text-[8px] font-mono text-mist-gray/50">{exactTime}</span>
+                        <span className="text-[7px] font-heading font-bold ml-1.5 tracking-wider" style={{ color: rank.color }}>{rank.label}</span>
+                      </div>
+                      <NewsCard
+                        article={article}
+                        index={i}
+                        userLang={userLang}
+                        onVoiceRead={onVoiceRead}
+                        currentCategory={currentCategory}
+                      />
+                    </div>
+                  );
+                } else {
+                  const post = item.data as SocialPost;
+                  const s = PLAT[post.platform] || PLAT.reddit;
+                  return (
+                    <motion.a
+                      key={`tl-rest-soc-${post.url}-${i}`}
+                      href={post.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex gap-3 p-3 rounded-xl bg-[#0a0a10]/80 border border-white/[0.04] hover:border-sharingan-red/20 transition-all"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      whileHover={{ y: -3, scale: 1.01 }}
+                    >
+                      <div
+                        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold text-white"
+                        style={{ backgroundColor: `${s.color}25`, border: `1px solid ${s.color}40` }}
+                      >
+                        <span style={{ color: s.color }}>{s.icon}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-heading font-semibold text-white/85 line-clamp-2 leading-snug group-hover:text-chakra-orange transition-colors">
+                          {post.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[9px] font-mono text-mist-gray/40 truncate">{post.author}</span>
+                          {post.score > 0 && (
+                            <span className="text-[9px] font-mono" style={{ color: s.color }}>
+                              {post.score > 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}
+                            </span>
+                          )}
+                          <span className="text-[9px] font-mono text-chakra-orange/50 ml-auto">{exactTime}</span>
+                        </div>
+                      </div>
+                    </motion.a>
+                  );
+                }
+              })}
+            </div>
+          )}
+        </div>
+      ),
+    };
+  });
+
+  if (timelineData.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      {/* Section header */}
+      <div className="flex items-center gap-3 mb-2 px-2">
+        <SharinganEye size={18} spin glow />
+        <h2 className="text-lg font-heading font-bold text-scroll-cream">Intelligence Timeline</h2>
+        <span className="text-[10px] font-mono text-mist-gray/40">News + Social combined</span>
+      </div>
+      <Timeline data={timelineData} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
    MAIN PAGE
    ══════════════════════════════════════════════ */
 export default function TrendingPage() {
@@ -1091,14 +1368,28 @@ export default function TrendingPage() {
           {/* ── CATEGORIES ── */}
           <motion.div className="flex gap-2 overflow-x-auto pb-3 mb-5 scrollbar-hide" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
             {CATEGORIES.map((cat) => (
-              <button key={cat.id} onClick={() => setCategory(cat.id)}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-heading font-medium transition-all ${
+              <motion.button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`relative flex-shrink-0 px-4 py-2 rounded-xl text-sm font-heading font-medium overflow-hidden transition-colors ${
                   category === cat.id
                     ? "bg-sharingan-red/12 text-white border border-sharingan-red/25 shadow-[0_0_15px_rgba(204,0,0,0.12)]"
                     : "bg-white/[0.02] text-mist-gray/60 border border-white/[0.04] hover:text-white hover:border-white/[0.08]"
-                }`}>
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 {cat.label}
-              </button>
+                {/* Active scan line */}
+                {category === cat.id && (
+                  <motion.div
+                    className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-sharingan-red to-transparent"
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 0.4 }}
+                  />
+                )}
+              </motion.button>
             ))}
           </motion.div>
 
@@ -1120,32 +1411,35 @@ export default function TrendingPage() {
           {/* LOADING */}
           {loading && !error && <SharinganLoader />}
 
-          {/* ── NEWS — Featured hero + grid ── */}
-          {!loading && !error && articles.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              {/* Hero — first article */}
-              <FeaturedCard
-                article={articles[0]}
-                userLang={lang}
-                onVoiceRead={handleVoiceRead}
-              />
+          {/* ── UNIFIED TIMELINE — News + Social merged chronologically ── */}
+          <AnimatePresence mode="wait">
+            {!loading && !error && articles.length > 0 && (
+              <motion.div
+                key={`news-${category}-${country}-${lang}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                {/* Hero — first article */}
+                <FeaturedCard
+                  article={articles[0]}
+                  userLang={lang}
+                  onVoiceRead={handleVoiceRead}
+                  currentCategory={category}
+                />
 
-              {/* Grid — rest of articles (vertical cards, 3 cols) */}
-              {articles.length > 1 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {articles.slice(1).map((article, i) => (
-                    <NewsCard
-                      key={`${article.url}-${i}`}
-                      article={article}
-                      index={i}
-                      userLang={lang}
-                      onVoiceRead={handleVoiceRead}
-                    />
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
+                {/* Timeline — combined news + social, grouped by time */}
+                <NewsTimeline
+                  articles={articles.slice(1)}
+                  socialPosts={socialPosts}
+                  userLang={lang}
+                  onVoiceRead={handleVoiceRead}
+                  currentCategory={category}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* EMPTY */}
           {!loading && !error && articles.length === 0 && (

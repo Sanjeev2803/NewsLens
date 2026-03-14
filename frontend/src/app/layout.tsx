@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Rajdhani, JetBrains_Mono, Noto_Sans_JP } from "next/font/google";
+import { Inter, Rajdhani, JetBrains_Mono, Noto_Sans_JP, Geist } from "next/font/google";
 import "./globals.css";
 import TransitionWrapper from "@/components/layout/TransitionWrapper";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({
   variable: "--font-body",
@@ -40,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
       <body
         className={`${inter.variable} ${rajdhani.variable} ${jetbrainsMono.variable} ${notoSansJP.variable} font-body antialiased`}
       >

@@ -193,8 +193,8 @@ export async function fetchGoogleNews(params: FetchParams): Promise<NewsArticle[
   });
 
   // For Google News articles without images, try fetching OG images
-  // from the source website (limit to 5 concurrent to avoid slowdown)
-  const needImages = articles.filter((a) => !a.image).slice(0, 5);
+  // from the source website (limit to 12 concurrent — more fallback attempts)
+  const needImages = articles.filter((a) => !a.image).slice(0, 12);
   if (needImages.length > 0) {
     const ogResults = await Promise.allSettled(
       needImages.map(async (a) => {
