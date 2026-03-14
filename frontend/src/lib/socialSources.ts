@@ -109,8 +109,17 @@ export async function fetchRedditTrending(
         .filter((p: { data: { stickied: boolean } }) => !p.data.stickied)
         .map((p: { data: Record<string, unknown> }) => {
           const d = p.data;
-          const preview = d.preview as { images?: Array<{ source?: { url?: string } }> } | undefined;
-          const imgUrl = preview?.images?.[0]?.source?.url;
+          const preview = d.preview as { images?: Array<{ source?: { url?: string }; resolutions?: Array<{ url?: string; width?: number }> }> } | undefined;
+
+          // Always prefer high-res source image over blurry thumbnail
+          const sourceImg = preview?.images?.[0]?.source?.url;
+          // Fallback: pick the highest resolution available
+          const resolutions = preview?.images?.[0]?.resolutions || [];
+          const bestRes = resolutions.length > 0 ? resolutions[resolutions.length - 1]?.url : null;
+          // Last resort: thumbnail (blurry, avoid if possible)
+          const thumbnail = d.thumbnail && String(d.thumbnail).startsWith("http") ? String(d.thumbnail) : null;
+
+          const image = (sourceImg || bestRes || thumbnail || null);
 
           return {
             title: String(d.title || ""),
@@ -118,11 +127,7 @@ export async function fetchRedditTrending(
             url: d.url_overridden_by_dest
               ? String(d.url_overridden_by_dest)
               : `https://reddit.com${d.permalink}`,
-            image: d.thumbnail && String(d.thumbnail).startsWith("http")
-              ? String(d.thumbnail)
-              : imgUrl
-                ? String(imgUrl).replace(/&amp;/g, "&")
-                : null,
+            image: image ? String(image).replace(/&amp;/g, "&") : null,
             author: `r/${sub} · u/${d.author}`,
             platform: "reddit" as const,
             score: Number(d.score) || 0,

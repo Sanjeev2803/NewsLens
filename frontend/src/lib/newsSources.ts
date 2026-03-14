@@ -478,6 +478,25 @@ export async function fetchGuardian(params: FetchParams): Promise<NewsArticle[]>
   }));
 }
 
+// ── Quality Filter — remove vague, clickbait, low-depth articles ──
+
+function isQualityArticle(a: NewsArticle): boolean {
+  // Must have a real title (not too short)
+  if (!a.title || a.title.trim().length < 25) return false;
+  // Must have meaningful description
+  if (!a.description || a.description.trim().length < 50) return false;
+  // Title shouldn't equal description (lazy duplication)
+  if (a.title.trim() === a.description.trim()) return false;
+  // Filter clickbait / non-article patterns
+  const junk = /^(watch|video:|photos:|gallery:|slideshow|quiz|poll|live updates|live blog|\[removed\]|\[deleted\]|subscribe|sign up)/i;
+  if (junk.test(a.title.trim())) return false;
+  // Filter ultra-short "headline only" articles
+  if (a.description.split(/\s+/).length < 8) return false;
+  // Filter articles with no real URL
+  if (!a.url || a.url.length < 15) return false;
+  return true;
+}
+
 // ── Master Aggregator with Fallback Chain ──
 
 export async function fetchAllNews(params: FetchParams): Promise<{
@@ -527,8 +546,11 @@ export async function fetchAllNews(params: FetchParams): Promise<{
     return true;
   });
 
+  // Quality filter — remove vague, shallow, clickbait articles
+  const quality = unique.filter(isQualityArticle);
+
   // Sort: articles WITH images first, then by date
-  unique.sort((a, b) => {
+  quality.sort((a, b) => {
     // Prioritize articles with images
     if (a.image && !b.image) return -1;
     if (!a.image && b.image) return 1;
@@ -537,10 +559,10 @@ export async function fetchAllNews(params: FetchParams): Promise<{
 
   // Count fresh articles (within last hour)
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const freshCount = unique.filter((a) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
+  const freshCount = quality.filter((a) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
 
   return {
-    articles: unique.slice(0, Math.max(params.max, 15)),
+    articles: quality.slice(0, Math.max(params.max, 15)),
     sources: activeSources,
     freshCount,
   };
