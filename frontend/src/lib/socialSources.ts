@@ -287,12 +287,20 @@ export async function fetchWikipediaTrending(lang: string = "en"): Promise<Socia
     const articles = data?.mostread?.articles || [];
 
     return articles.slice(0, 8).map((a: Record<string, unknown>) => {
-      const thumb = a.thumbnail as { source?: string } | undefined;
+      const thumb = a.thumbnail as { source?: string; width?: number } | undefined;
+      // Upgrade Wikipedia thumbnail to higher resolution (replace /NNNpx- with /800px-)
+      let image = thumb?.source || null;
+      if (image && image.includes("/thumb/")) {
+        image = image.replace(/\/\d+px-/, "/800px-");
+      }
+      const orig = a.originalimage as { source?: string } | undefined;
+      if (orig?.source) image = orig.source; // Use original full-res if available
+
       return {
         title: String(a.normalizedtitle || a.title || ""),
         text: String((a as Record<string, string>).extract || "").slice(0, 200),
         url: String((a as Record<string, { desktop?: string }>).content_urls?.desktop || ""),
-        image: thumb?.source || null,
+        image,
         author: "Wikipedia",
         platform: "wikipedia" as const,
         score: Number(a.views) || 0,

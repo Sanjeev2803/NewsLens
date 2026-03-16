@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Sparkles } from "lucide-react";
 
@@ -11,6 +12,8 @@ interface DisplayCardProps {
   date?: string;
   iconClassName?: string;
   titleClassName?: string;
+  image?: string | null;
+  onClick?: () => void;
 }
 
 function DisplayCard({
@@ -21,22 +24,68 @@ function DisplayCard({
   date = "Just now",
   iconClassName = "text-blue-500",
   titleClassName = "text-blue-500",
+  image,
+  onClick,
 }: DisplayCardProps) {
+  const [imgErr, setImgErr] = useState(false);
+  const showImg = image && !imgErr;
+
   return (
     <div
       className={cn(
-        "relative flex h-36 w-[22rem] -skew-y-[8deg] select-none flex-col justify-between rounded-xl border-2 bg-muted/70 backdrop-blur-sm px-4 py-3 transition-all duration-700 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[20rem] after:bg-gradient-to-l after:from-background after:to-transparent after:content-[''] hover:border-white/20 hover:bg-muted [&>*]:flex [&>*]:items-center [&>*]:gap-2",
+        "group/card relative flex w-[22rem] select-none flex-col rounded-xl border-2 overflow-hidden transition-all duration-500 hover:border-white/30",
+        showImg ? "h-48" : "h-36 -skew-y-[8deg] bg-muted/70 backdrop-blur-sm px-4 py-3 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[20rem] after:bg-gradient-to-l after:from-background after:to-transparent after:content-[''] hover:bg-muted [&>*]:flex [&>*]:items-center [&>*]:gap-2",
+        onClick && "cursor-pointer",
         className
       )}
+      onClick={onClick}
     >
-      <div>
-        <span className={cn("relative inline-block rounded-full bg-blue-800 p-1", iconClassName)}>
-          {icon}
-        </span>
-        <p className={cn("text-lg font-medium", titleClassName)}>{title}</p>
-      </div>
-      <p className="whitespace-nowrap text-lg">{description}</p>
-      <p className="text-muted-foreground">{date}</p>
+      {showImg ? (
+        <>
+          {/* Full bleed background image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={image}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+            onError={() => setImgErr(true)}
+          />
+          {/* Cinematic overlays — keep image visible */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
+
+          {/* Content pinned to bottom over the image */}
+          <div className="relative z-10 mt-auto p-4 flex flex-col gap-1.5">
+            {/* Rank badge + date row */}
+            <div className="flex items-center gap-2">
+              <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider backdrop-blur-sm", iconClassName)}>
+                {icon}
+                <span className={cn(titleClassName)}>{title}</span>
+              </span>
+              <span className="text-[10px] text-white/50 font-mono ml-auto">{date}</span>
+            </div>
+            {/* Headline */}
+            <p className="text-sm font-semibold text-white leading-snug line-clamp-2 drop-shadow-lg">
+              {description}
+            </p>
+          </div>
+
+          {/* Hover glow */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/0 to-transparent group-hover/card:via-red-500/50 transition-all duration-500" />
+        </>
+      ) : (
+        /* Fallback: original text-only card layout */
+        <>
+          <div className="relative z-10">
+            <span className={cn("relative inline-block rounded-full bg-blue-800 p-1", iconClassName)}>
+              {icon}
+            </span>
+            <p className={cn("text-lg font-medium", titleClassName)}>{title}</p>
+          </div>
+          <p className="relative z-10 whitespace-nowrap text-lg">{description}</p>
+          <p className="relative z-10 text-muted-foreground">{date}</p>
+        </>
+      )}
     </div>
   );
 }

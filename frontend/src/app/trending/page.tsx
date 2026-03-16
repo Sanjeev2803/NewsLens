@@ -5,8 +5,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-mo
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Timeline } from "@/components/ui/timeline";
-import DisplayCards from "@/components/ui/display-cards";
-import { Flame, Zap, Clock, FileText, Newspaper, MessageCircle } from "lucide-react";
+// DisplayCards import removed — timeline uses responsive NewsCard grid
+// lucide-react icons removed — using inline SVGs
 
 /* ══════════════════════════════════════════════
    TYPES
@@ -499,16 +499,18 @@ function NarutoChatbot({ lang, onSpeak }: { lang: string; onSpeak: (fn: (text: s
 /* ══════════════════════════════════════════════
    FEATURED HERO CARD — First article, dramatic layout
    ══════════════════════════════════════════════ */
-function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { article: Article; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string }) {
+function FeaturedCard({ article, userLang, onVoiceRead, currentCategory, onOpenReader }: { article: Article; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string; onOpenReader?: (article: Article) => void }) {
   const [imgErr, setImgErr] = useState(false);
   const rank = getArticleRank(article.publishedAt);
-  const hasImg = article.image && !imgErr;
   const mouseX = useMotionValue(0.5);
   const mouseY = useMotionValue(0.5);
   const rotateX = useTransform(mouseY, [0, 1], [3, -3]);
   const rotateY = useTransform(mouseX, [0, 1], [-3, 3]);
   const catGradient = CATEGORY_GRADIENTS[currentCategory || "general"] || CATEGORY_GRADIENTS.general;
   const catIcon = CATEGORY_ICONS[currentCategory || "general"] || "\u{1F5DE}";
+  const fallbackImg = NEWS_FALLBACK_IMAGES[currentCategory || "general"] || NEWS_FALLBACK_IMAGES.general;
+  const imgSrc = (!imgErr && article.image) ? article.image : fallbackImg;
+  const hasRealImg = article.image && !imgErr;
 
   return (
     <motion.div
@@ -524,27 +526,22 @@ function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { art
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
-      {/* Background Image */}
-      <div className="relative aspect-[2.2/1] md:aspect-[3/1]">
-        {hasImg ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={article.image!}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              onError={() => setImgErr(true)}
-            />
-            {/* Heavy dark overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-[#08080d]/70 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#08080d]/80 via-transparent to-[#08080d]/60" />
-          </>
-        ) : (
-          <div className={`absolute inset-0 bg-gradient-to-br ${catGradient} flex items-center justify-center`}>
-            <div className="relative">
-              <span className="text-7xl opacity-15">{catIcon}</span>
-              <SharinganEye size={100} spin className="absolute inset-0 m-auto opacity-[0.04]" />
-            </div>
+      {/* Background Image — always visible */}
+      <div className="relative aspect-[2.2/1] md:aspect-[3/1] cursor-pointer" onClick={() => onOpenReader?.(article)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          onError={() => setImgErr(true)}
+        />
+        {/* Heavy dark overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-[#08080d]/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#08080d]/80 via-transparent to-[#08080d]/60" />
+        {/* Category icon for fallback images */}
+        {!hasRealImg && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-7xl opacity-10">{catIcon}</span>
           </div>
         )}
 
@@ -573,16 +570,15 @@ function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { art
               <span className="text-[10px] font-heading font-bold tracking-widest" style={{ color: rank.color }}>{rank.label}</span>
               <span className="text-[8px] font-mono tracking-wider opacity-60" style={{ color: rank.color }}>{rank.sub}</span>
             </div>
-            <span className="text-[11px] font-mono text-mist-gray/50">{article.source.name}</span>
             <span className="text-[11px] font-mono text-mist-gray/30">{timeAgo(article.publishedAt)}</span>
           </div>
 
-          {/* Title */}
-          <a href={article.url} target="_blank" rel="noopener noreferrer">
+          {/* Title — click opens reader */}
+          <button onClick={() => onOpenReader?.(article)} className="text-left">
             <h2 className="text-xl md:text-2xl font-heading font-bold text-white leading-tight line-clamp-2 mb-2 group-hover:text-chakra-orange transition-colors duration-300">
               {article.title}
             </h2>
-          </a>
+          </button>
 
           {/* Description */}
           <p className="text-sm text-mist-gray/70 leading-relaxed line-clamp-2 mb-4 max-w-3xl">
@@ -598,17 +594,16 @@ function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { art
               <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 text-chakra-orange"><path d="M8 2L4 6H1v4h3l4 4V2z" fill="currentColor" /><path d="M11 5.5a3.5 3.5 0 010 5" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
               <span className="text-[10px] font-heading text-chakra-orange tracking-wider">VOICE</span>
             </button>
-            <a
-              href={translateUrl(article.url, userLang === "en" ? "en" : "en")}
-              target="_blank" rel="noopener noreferrer"
+            <button
+              onClick={() => window.open(translateUrl(article.url, "en"), "_blank")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rasengan-blue/10 border border-rasengan-blue/20 hover:bg-rasengan-blue/20 transition-all"
             >
               <span className="text-[10px] font-heading text-rasengan-blue tracking-wider">TRANSLATE</span>
-            </a>
-            <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all ml-auto">
+            </button>
+            <button onClick={() => onOpenReader?.(article)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all ml-auto">
               <span className="text-[10px] font-heading text-white/70 tracking-wider">READ FULL</span>
               <svg viewBox="0 0 12 12" className="w-3 h-3 text-white/50"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -617,20 +612,215 @@ function FeaturedCard({ article, userLang, onVoiceRead, currentCategory }: { art
 }
 
 /* ══════════════════════════════════════════════
-   NEWS CARD — Vertical, transforming, never-before-seen
+   ARTICLE READER MODAL — Opens inline with dramatic transition
    ══════════════════════════════════════════════ */
-function NewsCard({ article, index, userLang, onVoiceRead, currentCategory }: { article: Article; index: number; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string }) {
+function ArticleReader({ article, userLang, onVoiceRead, onClose }: { article: Article; userLang: string; onVoiceRead: (text: string) => void; onClose: () => void }) {
+  const [imgErr, setImgErr] = useState(false);
+  const [articleContent, setArticleContent] = useState<string | null>(null);
+  const [contentLoading, setContentLoading] = useState(true);
+  const [activeLang, setActiveLang] = useState("original");
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState(false);
+  const rank = getArticleRank(article.publishedAt);
+  const fallbackImg = NEWS_FALLBACK_IMAGES.general;
+  const imgSrc = (!imgErr && article.image) ? article.image : fallbackImg;
+
+  // Build unique language options
+  const langOptions = ["original", "en", "hi", userLang].filter((v, i, a) => a.indexOf(v) === i && v !== "original" ? v !== "en" || userLang !== "en" : true);
+  const langLabels: Record<string, string> = { original: "Original", en: "English", hi: "Hindi" };
+  LANGUAGES.forEach(l => { langLabels[l.code] = l.label; });
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", h); document.body.style.overflow = ""; };
+  }, [onClose]);
+
+  // Fetch full article content on mount
+  useEffect(() => {
+    setContentLoading(true);
+    fetch(`/api/article?url=${encodeURIComponent(article.url)}`)
+      .then(r => r.json())
+      .then(data => { setArticleContent(data.content || null); setContentLoading(false); })
+      .catch(() => setContentLoading(false));
+  }, [article.url]);
+
+  const handleLangSwitch = async (targetLang: string) => {
+    setActiveLang(targetLang);
+    if (targetLang === "original" || !articleContent) return;
+    if (translations[targetLang]) return;
+    setTranslating(true);
+    try {
+      const res = await fetch(`/api/translate?text=${encodeURIComponent(articleContent.slice(0, 5000))}&to=${targetLang}`);
+      const data = await res.json();
+      if (data.translatedText) {
+        setTranslations(prev => ({ ...prev, [targetLang]: data.translatedText }));
+      }
+    } catch { /* silent */ }
+    setTranslating(false);
+  };
+
+  const displayedContent = activeLang === "original" ? articleContent : (translations[activeLang] || articleContent);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[100] flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <motion.div
+        className="absolute inset-0 bg-[#08080d]/85 backdrop-blur-xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      />
+
+      {/* Sharingan entry */}
+      <motion.div className="absolute inset-0 pointer-events-none flex items-center justify-center" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 1.2, delay: 0.2 }}>
+        <motion.div className="w-[200px] h-[200px] rounded-full border border-sharingan-red/30" initial={{ scale: 0 }} animate={{ scale: [0, 3, 5] }} transition={{ duration: 1, ease: "easeOut" }} />
+      </motion.div>
+
+      <motion.div
+        className="relative z-10 w-[95vw] max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden bg-[#0a0a10] border border-white/[0.06] shadow-[0_20px_80px_rgba(0,0,0,0.8),0_0_40px_rgba(204,0,0,0.1)]"
+        initial={{ scale: 0.7, y: 60, opacity: 0, rotateX: 15 }}
+        animate={{ scale: 1, y: 0, opacity: 1, rotateX: 0 }}
+        exit={{ scale: 0.8, y: 40, opacity: 0, rotateX: -10 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+        style={{ perspective: 1000 }}
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-sharingan-red/40 hover:bg-sharingan-red/10 transition-all">
+          <svg viewBox="0 0 12 12" className="w-4 h-4"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" /></svg>
+        </button>
+
+        <div className="overflow-y-auto max-h-[90vh]">
+          {/* Hero image */}
+          <div className="relative aspect-[2.5/1] w-full overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imgSrc} alt="" className="absolute inset-0 w-full h-full object-cover object-top" onError={() => setImgErr(true)} />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] via-[#0a0a10]/40 to-transparent" />
+            <div className="absolute bottom-4 left-5 flex items-center gap-3">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${rank.bgColor} border ${rank.borderColor} ${rank.glow} backdrop-blur-md`}>
+                <span className="text-[9px]">{rank.icon}</span>
+                <span className="text-[10px] font-heading font-bold tracking-widest" style={{ color: rank.color }}>{rank.label}</span>
+              </div>
+              <span className="text-xs font-mono text-white/30">{timeAgo(article.publishedAt)}</span>
+            </div>
+            <div className="absolute top-4 left-4 opacity-40"><SharinganEye size={24} spin glow /></div>
+          </div>
+
+          <div className="px-6 md:px-10 py-6">
+            <motion.h1 className="text-xl md:text-3xl font-heading font-bold text-white leading-tight mb-3" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              {article.title}
+            </motion.h1>
+
+            <motion.div className="h-[2px] w-24 bg-gradient-to-r from-sharingan-red to-chakra-orange rounded-full mb-4" initial={{ width: 0 }} animate={{ width: 96 }} transition={{ delay: 0.3, duration: 0.5 }} />
+
+            {/* Language toggle */}
+            <motion.div className="flex flex-wrap gap-2 mb-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
+              {langOptions.map(code => (
+                <button
+                  key={code}
+                  onClick={() => handleLangSwitch(code)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-heading tracking-wider transition-all ${
+                    activeLang === code
+                      ? "bg-sharingan-red/15 border border-sharingan-red/30 text-white"
+                      : "bg-white/[0.03] border border-white/[0.06] text-mist-gray/60 hover:text-white hover:border-white/[0.12]"
+                  }`}
+                >
+                  {langLabels[code] || code.toUpperCase()}
+                </button>
+              ))}
+              {translating && (
+                <span className="flex items-center gap-1.5 text-xs text-chakra-orange/70">
+                  <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                    <SharinganEye size={12} spin />
+                  </motion.span>
+                  Translating...
+                </span>
+              )}
+            </motion.div>
+
+            {/* Article actions */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <button onClick={() => onVoiceRead(`${article.title}. ${article.description}`)} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-chakra-orange/10 border border-chakra-orange/25 hover:bg-chakra-orange/20 transition-all">
+                <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 text-chakra-orange"><path d="M8 2L4 6H1v4h3l4 4V2z" fill="currentColor" /><path d="M11 5.5a3.5 3.5 0 010 5" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+                <span className="text-[10px] font-heading text-chakra-orange tracking-wider">VOICE</span>
+              </button>
+              <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all ml-auto">
+                <span className="text-[10px] font-heading text-white/70 tracking-wider">OPEN SOURCE</span>
+                <svg viewBox="0 0 12 12" className="w-3 h-3 text-white/40"><path d="M3 9l6-6M5 3h4v4" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+              </a>
+            </div>
+
+            {/* Full article content — inline, no iframe */}
+            <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-5 md:p-6">
+              {contentLoading ? (
+                <div className="space-y-3 animate-pulse">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="h-4 rounded bg-white/[0.04]" style={{ width: `${70 + Math.random() * 30}%` }} />
+                  ))}
+                </div>
+              ) : displayedContent ? (
+                <div className="text-sm md:text-base text-mist-gray/80 leading-relaxed space-y-4">
+                  {displayedContent.split("\n\n").filter(Boolean).map((p, i) => (
+                    <p key={i}>{p}</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-mist-gray/50 text-sm mb-3">{article.description}</p>
+                  <p className="text-mist-gray/30 text-xs">Full article content could not be extracted.</p>
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl bg-rasengan-blue/10 border border-rasengan-blue/25 text-xs font-heading text-rasengan-blue hover:bg-rasengan-blue/20 transition-all">
+                    Read on source site
+                    <svg viewBox="0 0 12 12" className="w-3 h-3"><path d="M3 9l6-6M5 3h4v4" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sharingan-red/40 to-transparent" />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   NEWS CARD — Click to open, hover for details
+   ══════════════════════════════════════════════ */
+const NEWS_FALLBACK_IMAGES: Record<string, string> = {
+  general: "https://images.unsplash.com/photo-1504711434969-e33886168d6c?w=600&q=80",
+  nation: "https://images.unsplash.com/photo-1524522173746-f628baad3644?w=600&q=80",
+  world: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&q=80",
+  sports: "https://images.unsplash.com/photo-1461896836934-bd45ba8bfbb0?w=600&q=80",
+  entertainment: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&q=80",
+  technology: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=80",
+  business: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&q=80",
+  science: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&q=80",
+  health: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=80",
+};
+
+function NewsCard({ article, index, userLang, onVoiceRead, currentCategory, onOpenReader }: { article: Article; index: number; userLang: string; onVoiceRead: (text: string) => void; currentCategory?: string; onOpenReader?: (article: Article) => void }) {
   const [imgErr, setImgErr] = useState(false);
   const [hovered, setHovered] = useState(false);
   const rank = getArticleRank(article.publishedAt);
-  const hasImg = article.image && !imgErr;
   const freshness = chakraLevel(article.publishedAt);
   const catGradient = CATEGORY_GRADIENTS[currentCategory || "general"] || CATEGORY_GRADIENTS.general;
   const catIcon = CATEGORY_ICONS[currentCategory || "general"] || "\u{1F5DE}";
 
+  // Image with fallback chain: article image → category stock image
+  const fallbackImg = NEWS_FALLBACK_IMAGES[currentCategory || "general"] || NEWS_FALLBACK_IMAGES.general;
+  const imgSrc = (!imgErr && article.image) ? article.image : fallbackImg;
+  const hasRealImg = article.image && !imgErr;
+
   return (
     <motion.div
-      className="group relative flex flex-col rounded-xl overflow-hidden
+      className="group relative flex flex-col rounded-xl overflow-hidden cursor-pointer
         bg-[#0a0a10]/90 backdrop-blur-sm
         border border-white/[0.04]
         hover:border-sharingan-red/25
@@ -641,34 +831,26 @@ function NewsCard({ article, index, userLang, onVoiceRead, currentCategory }: { 
       whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.25, ease: "easeOut" } }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
+      onClick={() => onOpenReader?.(article)}
     >
-      {/* Image area */}
-      <a href={article.url} target="_blank" rel="noopener noreferrer" className="relative aspect-[16/9] overflow-hidden">
-        {hasImg ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={article.image!}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-              onError={() => setImgErr(true)}
-              loading="lazy"
-            />
-            {/* Cinematic overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] via-transparent to-transparent opacity-90" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a10]/40 via-transparent to-transparent" />
-          </>
-        ) : (
-          /* No-image — category-themed gradient with icon */
-          <div className={`absolute inset-0 bg-gradient-to-br ${catGradient} flex items-center justify-center`}>
-            <div className="relative">
-              <span className="text-4xl opacity-20">{catIcon}</span>
-              <SharinganEye size={40} className="absolute inset-0 m-auto opacity-[0.04]" />
-            </div>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#0a0a10_70%)]" />
-            {/* Kunai slash decoration */}
-            <div className="absolute top-3 right-3 w-8 h-[1px] bg-gradient-to-r from-transparent to-white/10 rotate-[-30deg]" />
-            <div className="absolute bottom-3 left-3 w-6 h-[1px] bg-gradient-to-l from-transparent to-white/10 rotate-[-30deg]" />
+      {/* Image area — always shows an image */}
+      <div className="relative aspect-[16/9] overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-700"
+          onError={() => setImgErr(true)}
+          loading="lazy"
+        />
+        {/* Cinematic overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] via-transparent to-transparent opacity-90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a10]/40 via-transparent to-transparent" />
+
+        {/* Category icon overlay for fallback images */}
+        {!hasRealImg && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-5xl opacity-15">{catIcon}</span>
           </div>
         )}
 
@@ -681,43 +863,59 @@ function NewsCard({ article, index, userLang, onVoiceRead, currentCategory }: { 
           <span className="text-[8px] font-heading font-bold tracking-[0.15em]" style={{ color: rank.color }}>{rank.label}</span>
         </div>
 
-        {/* Sharingan — appears on hover, scans across */}
+        {/* Sharingan — appears on hover */}
         <AnimatePresence>
           {hovered && (
             <motion.div
               className="absolute top-2.5 right-2.5"
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 0.7, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
+              animate={{ opacity: 0.7, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.5, rotate: 90 }}
+              transition={{ duration: 0.4 }}
             >
               <SharinganEye size={20} spin glow />
             </motion.div>
           )}
         </AnimatePresence>
-      </a>
+
+        {/* Hover overlay — "Click to read" hint */}
+        <AnimatePresence>
+          {hovered && (
+            <motion.div
+              className="absolute inset-0 bg-[#0a0a10]/40 flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-sharingan-red/20"
+                initial={{ scale: 0.8, y: 10 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 10 }}
+              >
+                <span className="text-[10px] font-heading text-sharingan-red tracking-widest uppercase">Click to Read</span>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 p-4">
-        {/* Source + Time */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-mono text-mist-gray/50 uppercase tracking-wider truncate">
-            {article.source.name}
-          </span>
+        {/* Time */}
+        <div className="flex items-center justify-end mb-2">
           <span className="text-[10px] font-mono text-mist-gray/30 flex-shrink-0">
             {timeAgo(article.publishedAt)}
           </span>
         </div>
 
         {/* Title */}
-        <a href={article.url} target="_blank" rel="noopener noreferrer">
-          <h3 className="text-[13px] font-heading font-semibold text-white/90 leading-snug line-clamp-2 mb-2 group-hover:text-chakra-orange transition-colors duration-300">
-            {article.title}
-          </h3>
-        </a>
+        <h3 className="text-[13px] font-heading font-semibold text-white/90 leading-snug line-clamp-2 mb-2 group-hover:text-chakra-orange transition-colors duration-300">
+          {article.title}
+        </h3>
 
-        {/* Description — expands on hover */}
-        <p className={`text-[11px] text-mist-gray/50 leading-relaxed transition-all duration-300 ${hovered ? "line-clamp-4" : "line-clamp-2"}`}>
+        {/* Description — expands fully on hover */}
+        <p className={`text-[11px] text-mist-gray/50 leading-relaxed transition-all duration-500 ${hovered ? "line-clamp-6 text-mist-gray/70" : "line-clamp-2"}`}>
           {article.description}
         </p>
 
@@ -740,20 +938,19 @@ function NewsCard({ article, index, userLang, onVoiceRead, currentCategory }: { 
         {/* Actions */}
         <div className="flex items-center gap-2 mt-auto">
           <button
-            onClick={() => onVoiceRead(`${article.title}. ${article.description}`)}
+            onClick={(e) => { e.stopPropagation(); onVoiceRead(`${article.title}. ${article.description}`); }}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-chakra-orange/6 border border-chakra-orange/10 hover:bg-chakra-orange/15 hover:border-chakra-orange/25 transition-all"
             title="Naruto reads aloud"
           >
             <svg viewBox="0 0 16 16" className="w-3 h-3 text-chakra-orange/60 group-hover:text-chakra-orange"><path d="M8 2L4 6H1v4h3l4 4V2z" fill="currentColor" /><path d="M11 5.5a3.5 3.5 0 010 5" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
             <span className="text-[8px] font-heading text-chakra-orange/60 group-hover:text-chakra-orange tracking-wider">VOICE</span>
           </button>
-          <a
-            href={translateUrl(article.url, "en")}
-            target="_blank" rel="noopener noreferrer"
+          <button
+            onClick={(e) => { e.stopPropagation(); window.open(translateUrl(article.url, "en"), "_blank"); }}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rasengan-blue/6 border border-rasengan-blue/10 hover:bg-rasengan-blue/15 hover:border-rasengan-blue/25 transition-all"
           >
             <span className="text-[8px] font-heading text-rasengan-blue/60 tracking-wider">TRANSLATE</span>
-          </a>
+          </button>
         </div>
       </div>
 
@@ -856,20 +1053,21 @@ function SocialPulse({ posts, platforms }: { posts: SocialPost[]; platforms: str
             transition={{ duration: 0.35, ease: "easeOut" }}
           >
             <div className="flex flex-col md:flex-row">
-              {/* Image — large, takes left half on desktop */}
-              <div className="relative w-full md:w-[45%] aspect-[16/9] md:aspect-auto md:min-h-[200px] overflow-hidden flex-shrink-0">
+              {/* Image — left side on desktop, top on mobile */}
+              <div className="relative w-full md:w-2/5 aspect-video md:aspect-auto md:min-h-[220px] overflow-hidden flex-shrink-0">
                 {hasImg ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={post.image!}
                       alt=""
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`absolute inset-0 w-full h-full bg-[#0a0a10] group-hover:scale-105 transition-transform duration-500 ${
+                        post.platform === "wikipedia" ? "object-contain p-1" : "object-cover object-top"
+                      }`}
                       loading="lazy"
                       onError={() => setImgErr((prev) => ({ ...prev, [active]: true }))}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a10]/80 hidden md:block" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] to-transparent md:hidden" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10]/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-[#0a0a10]/80" />
                   </>
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-[#0e0e18] to-[#0a0a10] flex items-center justify-center">
@@ -888,7 +1086,7 @@ function SocialPulse({ posts, platforms }: { posts: SocialPost[]; platforms: str
                 </div>
               </div>
 
-              {/* Content — right side */}
+              {/* Content — right side on desktop, below on mobile */}
               <div className="flex-1 p-5 md:p-6 flex flex-col justify-center min-w-0">
                 {/* Author + meta */}
                 <div className="flex items-center gap-2 mb-2.5">
@@ -978,6 +1176,77 @@ function SocialPulse({ posts, platforms }: { posts: SocialPost[]; platforms: str
 }
 
 /* ══════════════════════════════════════════════
+   SOCIAL CARD — for timeline grid (with onError image fallback)
+   ══════════════════════════════════════════════ */
+function SocialCard({ post, index, currentCategory, time }: { post: SocialPost; index: number; currentCategory: string; time: Date }) {
+  const [imgErr, setImgErr] = useState(false);
+  const s = PLAT[post.platform] || PLAT.reddit;
+  const fallbackImg = NEWS_FALLBACK_IMAGES[currentCategory || "general"] || NEWS_FALLBACK_IMAGES.general;
+  const hasImg = post.image && !imgErr;
+
+  return (
+    <motion.a
+      href={post.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group relative flex flex-col rounded-xl overflow-hidden bg-[#0a0a10]/90 backdrop-blur-sm border border-white/[0.04] hover:border-sharingan-red/25 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4),0_0_20px_rgba(204,0,0,0.08)]"
+      initial={{ opacity: 0, y: 30, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5, delay: index * 0.08 }}
+      whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.25 } }}
+    >
+      {/* Image area — shows full image without cropping faces */}
+      <div className="relative aspect-[16/9] overflow-hidden bg-[#0a0a10]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={hasImg ? post.image! : fallbackImg}
+          alt=""
+          className={`absolute inset-0 w-full h-full group-hover:scale-110 transition-transform duration-700 ${
+            post.platform === "wikipedia" ? "object-contain" : "object-cover object-top"
+          }`}
+          loading="lazy"
+          onError={() => setImgErr(true)}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] via-transparent to-transparent opacity-90" />
+        {!hasImg && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ backgroundColor: `${s.color}20`, color: s.color }}>
+              {s.icon}
+            </div>
+          </div>
+        )}
+        {/* Platform badge */}
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 rounded-lg backdrop-blur-sm" style={{ backgroundColor: `${s.color}20`, border: `1px solid ${s.color}30` }}>
+          <span className="w-3 h-3 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: s.color }}>{s.icon}</span>
+          <span className="text-[9px] font-heading font-semibold" style={{ color: s.color }}>
+            {post.platform.charAt(0).toUpperCase() + post.platform.slice(1)}
+          </span>
+        </div>
+      </div>
+      {/* Content */}
+      <div className="flex flex-col flex-1 p-4">
+        <h3 className="text-[13px] font-heading font-semibold text-white/90 leading-snug line-clamp-2 mb-2 group-hover:text-chakra-orange transition-colors duration-300">
+          {post.title}
+        </h3>
+        {post.text && post.text !== post.title && (
+          <p className="text-[11px] text-mist-gray/50 leading-relaxed line-clamp-2 mb-2">{post.text}</p>
+        )}
+        <div className="flex items-center gap-2 mt-auto">
+          <span className="text-[9px] font-mono text-mist-gray/40 truncate">{post.author}</span>
+          {post.score > 0 && (
+            <span className="text-[9px] font-mono" style={{ color: s.color }}>
+              {post.score > 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}
+            </span>
+          )}
+          <span className="text-[10px] font-mono text-mist-gray/30 ml-auto">{formatTimeSpecific(time)}</span>
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-sharingan-red/0 to-transparent group-hover:via-sharingan-red/30 transition-all duration-700" />
+    </motion.a>
+  );
+}
+
+/* ══════════════════════════════════════════════
    UNIFIED NEWS TIMELINE — 21st.dev Aceternity Timeline
    Merges news articles + social posts chronologically
    ══════════════════════════════════════════════ */
@@ -1036,12 +1305,14 @@ function NewsTimeline({
   userLang,
   onVoiceRead,
   currentCategory,
+  onOpenReader,
 }: {
   articles: Article[];
   socialPosts: SocialPost[];
   userLang: string;
   onVoiceRead: (text: string) => void;
   currentCategory: string;
+  onOpenReader: (article: Article) => void;
 }) {
   // Merge articles + social posts into a single chronological list
   const merged: TimelineItem[] = [
@@ -1059,147 +1330,40 @@ function NewsTimeline({
 
   const groups = groupByHour(merged);
 
-  // Build rank icon for display cards
-  const rankIcon = (label: string) => {
-    if (label === "S-RANK") return <Flame className="size-4 text-red-400" />;
-    if (label === "A-RANK") return <Zap className="size-4 text-orange-400" />;
-    if (label === "B-RANK") return <Clock className="size-4 text-blue-400" />;
-    return <FileText className="size-4 text-gray-400" />;
-  };
-
-  const rankColors: Record<string, { icon: string; title: string; bg: string }> = {
-    "S-RANK": { icon: "bg-red-900", title: "text-red-400", bg: "border-red-500/30" },
-    "A-RANK": { icon: "bg-orange-900", title: "text-orange-400", bg: "border-orange-500/30" },
-    "B-RANK": { icon: "bg-blue-900", title: "text-blue-400", bg: "border-blue-500/30" },
-    "C-RANK": { icon: "bg-gray-800", title: "text-gray-400", bg: "border-gray-600/30" },
-  };
-
-  const timelineData = groups.map((group) => {
-    // Separate top 3 items for DisplayCards stack, rest go into regular grid
-    const topItems = group.items.slice(0, 3);
-    const restItems = group.items.slice(3);
-
-    const displayCardData = topItems.map((item, i) => {
-      const exactTime = formatTimeSpecific(item.time);
-
-      if (item.type === "article") {
-        const article = item.data as Article;
-        const rank = getArticleRank(article.publishedAt);
-        const colors = rankColors[rank.label] || rankColors["C-RANK"];
-        const stackClass = i === 0
-          ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
-          : i === 1
-          ? "[grid-area:stack] translate-x-12 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
-          : "[grid-area:stack] translate-x-24 translate-y-20 hover:translate-y-10";
-
-        return {
-          icon: rankIcon(rank.label),
-          title: rank.label,
-          description: article.title.length > 50 ? article.title.slice(0, 50) + "..." : article.title,
-          date: exactTime,
-          iconClassName: colors.icon,
-          titleClassName: colors.title,
-          className: `${stackClass} ${colors.bg} cursor-pointer`,
-        };
-      } else {
-        const post = item.data as SocialPost;
-        const stackClass = i === 0
-          ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
-          : i === 1
-          ? "[grid-area:stack] translate-x-12 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration:700 hover:grayscale-0 before:left-0 before:top-0"
-          : "[grid-area:stack] translate-x-24 translate-y-20 hover:translate-y-10";
-
-        return {
-          icon: <MessageCircle className="size-4 text-cyan-300" />,
-          title: post.platform.charAt(0).toUpperCase() + post.platform.slice(1),
-          description: post.title.length > 50 ? post.title.slice(0, 50) + "..." : post.title,
-          date: exactTime,
-          iconClassName: "bg-cyan-900",
-          titleClassName: "text-cyan-400",
-          className: `${stackClass} border-cyan-500/20 cursor-pointer`,
-        };
-      }
-    });
-
-    return {
-      title: group.label,
-      content: (
-        <div className="pb-8">
-          {/* Stacked DisplayCards for top items */}
-          {displayCardData.length > 0 && (
-            <div className="mb-6">
-              <DisplayCards cards={displayCardData} />
-            </div>
-          )}
-
-          {/* Remaining items in grid */}
-          {restItems.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              {restItems.map((item, i) => {
-                const exactTime = formatTimeSpecific(item.time);
-                if (item.type === "article") {
-                  const article = item.data as Article;
-                  const rank = getArticleRank(article.publishedAt);
-                  return (
-                    <div key={`tl-rest-art-${article.url}-${i}`} className="relative">
-                      <div className="absolute -top-2 right-3 z-10 px-2 py-0.5 rounded-full bg-[#0a0a10] border border-white/[0.06]">
-                        <span className="text-[8px] font-mono text-mist-gray/50">{exactTime}</span>
-                        <span className="text-[7px] font-heading font-bold ml-1.5 tracking-wider" style={{ color: rank.color }}>{rank.label}</span>
-                      </div>
-                      <NewsCard
-                        article={article}
-                        index={i}
-                        userLang={userLang}
-                        onVoiceRead={onVoiceRead}
-                        currentCategory={currentCategory}
-                      />
-                    </div>
-                  );
-                } else {
-                  const post = item.data as SocialPost;
-                  const s = PLAT[post.platform] || PLAT.reddit;
-                  return (
-                    <motion.a
-                      key={`tl-rest-soc-${post.url}-${i}`}
-                      href={post.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex gap-3 p-3 rounded-xl bg-[#0a0a10]/80 border border-white/[0.04] hover:border-sharingan-red/20 transition-all"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      whileHover={{ y: -3, scale: 1.01 }}
-                    >
-                      <div
-                        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold text-white"
-                        style={{ backgroundColor: `${s.color}25`, border: `1px solid ${s.color}40` }}
-                      >
-                        <span style={{ color: s.color }}>{s.icon}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-heading font-semibold text-white/85 line-clamp-2 leading-snug group-hover:text-chakra-orange transition-colors">
-                          {post.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-[9px] font-mono text-mist-gray/40 truncate">{post.author}</span>
-                          {post.score > 0 && (
-                            <span className="text-[9px] font-mono" style={{ color: s.color }}>
-                              {post.score > 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}
-                            </span>
-                          )}
-                          <span className="text-[9px] font-mono text-chakra-orange/50 ml-auto">{exactTime}</span>
-                        </div>
-                      </div>
-                    </motion.a>
-                  );
-                }
-              })}
-            </div>
-          )}
-        </div>
-      ),
-    };
-  });
+  const timelineData = groups.map((group) => ({
+    title: group.label,
+    content: (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
+        {group.items.map((item, i) => {
+          if (item.type === "article") {
+            const article = item.data as Article;
+            return (
+              <NewsCard
+                key={`tl-art-${article.url}-${i}`}
+                article={article}
+                index={i}
+                userLang={userLang}
+                onVoiceRead={onVoiceRead}
+                currentCategory={currentCategory}
+                onOpenReader={onOpenReader}
+              />
+            );
+          } else {
+            const post = item.data as SocialPost;
+            return (
+              <SocialCard
+                key={`tl-soc-${post.url}-${i}`}
+                post={post}
+                index={i}
+                currentCategory={currentCategory}
+                time={item.time}
+              />
+            );
+          }
+        })}
+      </div>
+    ),
+  }));
 
   if (timelineData.length === 0) return null;
 
@@ -1234,6 +1398,7 @@ export default function TrendingPage() {
   const [region, setRegion] = useState<string | null>(null);
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [socialPlatforms, setSocialPlatforms] = useState<string[]>([]);
+  const [readerArticle, setReaderArticle] = useState<Article | null>(null);
   const speakRef = useRef<((text: string) => void) | null>(null);
 
   const fetchNews = useCallback(async () => {
@@ -1427,6 +1592,7 @@ export default function TrendingPage() {
                   userLang={lang}
                   onVoiceRead={handleVoiceRead}
                   currentCategory={category}
+                  onOpenReader={setReaderArticle}
                 />
 
                 {/* Timeline — combined news + social, grouped by time */}
@@ -1436,6 +1602,7 @@ export default function TrendingPage() {
                   userLang={lang}
                   onVoiceRead={handleVoiceRead}
                   currentCategory={category}
+                  onOpenReader={setReaderArticle}
                 />
               </motion.div>
             )}
@@ -1451,6 +1618,18 @@ export default function TrendingPage() {
           )}
         </div>
       </main>
+
+      {/* Article Reader Modal */}
+      <AnimatePresence>
+        {readerArticle && (
+          <ArticleReader
+            article={readerArticle}
+            userLang={lang}
+            onVoiceRead={handleVoiceRead}
+            onClose={() => setReaderArticle(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <NarutoChatbot lang={lang} onSpeak={(fn) => { speakRef.current = fn; }} />
       <Footer />
