@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import Button from "@/components/ui/Button";
+import { IconCircleCheckFilled, IconLoader2 } from "@tabler/icons-react";
 
 /*
   Newsletter Creation Modal
@@ -68,12 +69,12 @@ export default function NewsletterModal({ open, onClose }: Props) {
             {status === "success" ? (
               <div className="text-center py-8">
                 <motion.div
-                  className="text-5xl mb-4"
+                  className="flex justify-center mb-4"
                   initial={{ scale: 0 }}
                   animate={{ scale: [0, 1.3, 1] }}
                   transition={{ duration: 0.5 }}
                 >
-                  ✅
+                  <IconCircleCheckFilled size={48} className={isItachi ? "text-emerald-400" : "text-emerald-600"} />
                 </motion.div>
                 <h3 className={`text-xl font-heading font-bold mb-2 ${textPrimary}`}>
                   Summoning Complete
@@ -179,9 +180,9 @@ export default function NewsletterModal({ open, onClose }: Props) {
                       <motion.span
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="inline-block"
+                        className="inline-flex"
                       >
-                        ◎
+                        <IconLoader2 size={18} stroke={2} />
                       </motion.span>
                     ) : (
                       "Activate Summoning"

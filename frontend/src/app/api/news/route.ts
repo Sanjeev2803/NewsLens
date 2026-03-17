@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllNews } from "@/lib/newsSources";
+import { fetchAllNews, xmlParser } from "@/lib/newsSources";
 import { REGIONAL_FEEDS, LANGUAGE_STATE_MAP, fetchGoogleTrends, getRegionalGeo } from "@/lib/regionalSources";
-import { XMLParser } from "fast-xml-parser";
-
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: "@_",
-  isArray: (tagName) => ["item", "entry"].includes(tagName),
-});
+import { cachedFetch, getCacheStats } from "@/lib/cache";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// ── Country code → label map for regional filtering ──
+const COUNTRIES_MAP: Record<string, string> = {
+  in: "india", us: "united states", gb: "united kingdom", jp: "japan",
+  au: "australia", ca: "canada", de: "germany", fr: "france",
+  br: "brazil", cn: "china", ru: "russia", za: "south africa",
+};
 
 // ── Known logo/icon/branding URL patterns — these are NOT real news images ──
 const LOGO_PATTERNS = [
@@ -47,8 +48,8 @@ async function scrapeArticleImage(url: string): Promise<string | null> {
     if (!reader) return null;
     let html = "";
     const decoder = new TextDecoder();
-    // Read up to 100KB to catch images that may be below the fold
-    while (html.length < 100000) {
+    // Read up to 30KB — og:image is always in <head>, no need to read more
+    while (html.length < 30000) {
       const { done, value } = await reader.read();
       if (done) break;
       html += decoder.decode(value, { stream: true });
@@ -174,6 +175,32 @@ async function searchImageForHeadline(query: string): Promise<string | null> {
   }
 }
 
+// ── Concurrency limiter — prevents flooding external servers ──
+function pLimit(concurrency: number) {
+  const queue: (() => void)[] = [];
+  let active = 0;
+
+  function next() {
+    if (queue.length > 0 && active < concurrency) {
+      active++;
+      const run = queue.shift()!;
+      run();
+    }
+  }
+
+  return function <T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      queue.push(() => {
+        fn().then(resolve, reject).finally(() => {
+          active--;
+          next();
+        });
+      });
+      next();
+    });
+  };
+}
+
 // ── Enrich ALL articles — detect duplicate/branding images and replace with real ones ──
 async function enrichArticleImages(articles: any[]): Promise<any[]> {
   // STEP 1: Detect duplicate images — if the same image URL appears on 2+ articles, it's a site-wide logo
@@ -203,9 +230,10 @@ async function enrichArticleImages(articles: any[]): Promise<any[]> {
 
   if (needsImage.length === 0) return articles;
 
-  // STEP 3: Scrape real images from article pages in parallel
+  // STEP 3: Scrape real images — max 5 concurrent to avoid flooding
+  const limit = pLimit(5);
   const results = await Promise.allSettled(
-    needsImage.map((idx) => scrapeArticleImage(articles[idx].url))
+    needsImage.map((idx) => limit(() => scrapeArticleImage(articles[idx].url)))
   );
 
   // Collect scraped images to also check for duplicates among them
@@ -228,10 +256,11 @@ async function enrichArticleImages(articles: any[]): Promise<any[]> {
     }
   }
 
-  // STEP 4: Google Image Search fallback for articles STILL without images
+  // STEP 4: Bing Image Search fallback — max 3 concurrent
   if (stillNeedsImage.length > 0) {
+    const bingLimit = pLimit(3);
     const googleResults = await Promise.allSettled(
-      stillNeedsImage.map((idx) => searchImageForHeadline(articles[idx].title))
+      stillNeedsImage.map((idx) => bingLimit(() => searchImageForHeadline(articles[idx].title)))
     );
     for (let k = 0; k < stillNeedsImage.length; k++) {
       const gr = googleResults[k];
@@ -332,59 +361,108 @@ export async function GET(req: NextRequest) {
   const lang = searchParams.get("lang") || "en";
   const max = parseInt(searchParams.get("max") || "10", 10);
 
+  // Cache diagnostics endpoint
+  if (searchParams.get("_cache") === "status") {
+    return NextResponse.json(getCacheStats());
+  }
+
+  // Cache key — same category+country+lang combo shares the cache
+  const cacheKey = `news:${category}:${country}:${lang}`;
+
   try {
-    // Determine if this is a regional Indian language request
-    const isRegionalIndian = country === "in" && LANGUAGE_STATE_MAP[lang];
+    const result = await cachedFetch(
+      cacheKey,
+      async () => {
+        // ── This entire block only runs on cache miss or revalidation ──
 
-    // Fetch from all sources in parallel
-    const [globalResult, regionalResult, trends] = await Promise.all([
-      // Global multi-source fetch
-      fetchAllNews({ category, country, lang, max }),
+        const isRegionalIndian = country === "in" && LANGUAGE_STATE_MAP[lang];
 
-      // Regional feeds (only for Indian languages)
-      isRegionalIndian ? fetchRegionalFeeds(lang, max) : Promise.resolve({ articles: [], sources: [] }),
+        const [globalResult, regionalResult, trends] = await Promise.all([
+          fetchAllNews({ category, country, lang, max: 30 }), // fetch generous amount for cache
+          isRegionalIndian ? fetchRegionalFeeds(lang, 30) : Promise.resolve({ articles: [], sources: [] }),
+          fetchGoogleTrends(isRegionalIndian ? getRegionalGeo(lang, country) : country.toUpperCase()),
+        ]);
 
-      // Google Trends for the region
-      fetchGoogleTrends(isRegionalIndian ? getRegionalGeo(lang, country) : country.toUpperCase()),
-    ]);
+        // ── STRICT REGIONAL FILTERING ──
+        const now = Date.now();
+        const MAX_AGE_REGIONAL = 24 * 60 * 60 * 1000;
+        const MAX_AGE_GLOBAL = 48 * 60 * 60 * 1000;
 
-    // Merge articles: regional first (if available), then global
-    const allArticles = [...regionalResult.articles, ...globalResult.articles];
+        const freshRegional = regionalResult.articles.filter((a: any) => {
+          const age = now - new Date(a.publishedAt).getTime();
+          return age < MAX_AGE_REGIONAL && age >= 0;
+        });
 
-    // Deduplicate
-    const seen = new Set<string>();
-    const unique = allArticles.filter((a: any) => {
-      if (!a.title) return false;
-      const key = a.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 50);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+        const freshGlobal = globalResult.articles.filter((a: any) => {
+          const age = now - new Date(a.publishedAt).getTime();
+          return age < MAX_AGE_GLOBAL && age >= 0;
+        });
 
-    // Sort: images first, then by date
-    unique.sort((a: any, b: any) => {
-      if (a.image && !b.image) return -1;
-      if (!a.image && b.image) return 1;
-      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-    });
+        let filteredGlobal = freshGlobal;
+        if (isRegionalIndian && freshRegional.length >= 3) {
+          const regionStates = LANGUAGE_STATE_MAP[lang]?.states || [];
+          const regionKeywords = [
+            country.toUpperCase(),
+            ...regionStates.map((s: string) => s.toLowerCase()),
+            "india", "indian",
+          ];
+          filteredGlobal = freshGlobal.filter((a: any) => {
+            const text = `${a.title} ${a.description} ${a.source?.name || ""}`.toLowerCase();
+            return regionKeywords.some((kw) => text.includes(kw));
+          });
+          if (filteredGlobal.length < 2) {
+            filteredGlobal = freshGlobal.slice(0, 3);
+          }
+        } else if (category === "nation" && country !== "in") {
+          const countryLabel = (["us","gb","jp","au","ca","de","fr","br","cn","ru","za"]
+            .includes(country) ? COUNTRIES_MAP[country] : country).toLowerCase();
+          filteredGlobal = freshGlobal.filter((a: any) => {
+            const text = `${a.title} ${a.description} ${a.source?.name || ""}`.toLowerCase();
+            return text.includes(countryLabel);
+          });
+          if (filteredGlobal.length < 2) filteredGlobal = freshGlobal.slice(0, 5);
+        }
 
-    // Merge sources
-    const allSources = [...new Set([...regionalResult.sources, ...globalResult.sources])];
+        const allArticles = [...freshRegional, ...filteredGlobal];
 
-    // Count fresh
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    const freshCount = unique.filter((a: any) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
+        const seen = new Set<string>();
+        const unique = allArticles.filter((a: any) => {
+          if (!a.title) return false;
+          const k = a.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 50);
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
 
-    // Enrich: fetch real images for articles missing them (scrapes og:image from article URLs)
-    const finalArticles = await enrichArticleImages(unique.slice(0, Math.max(max, 15)));
+        unique.sort((a: any, b: any) => {
+          if (a.image && !b.image) return -1;
+          if (!a.image && b.image) return 1;
+          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        });
 
+        const allSources = [...new Set([...regionalResult.sources, ...globalResult.sources])];
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        const freshCount = unique.filter((a: any) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
+
+        // Enrich images — runs inside cache so scraping only happens once per 3 minutes
+        const enrichedArticles = await enrichArticleImages(unique.slice(0, 30));
+
+        return {
+          articles: enrichedArticles,
+          totalArticles: unique.length,
+          freshCount,
+          sources: allSources,
+          trending: trends.slice(0, 12),
+          region: isRegionalIndian ? LANGUAGE_STATE_MAP[lang].states.join(", ") : null,
+        };
+      },
+      { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 } // 3min fresh, 10min stale grace
+    );
+
+    // Slice to requested max AFTER cache (cache stores full set)
     return NextResponse.json({
-      articles: finalArticles,
-      totalArticles: unique.length,
-      freshCount,
-      sources: allSources,
-      trending: trends.slice(0, 12),
-      region: isRegionalIndian ? LANGUAGE_STATE_MAP[lang].states.join(", ") : null,
+      ...result,
+      articles: result.articles.slice(0, max),
     });
   } catch (err) {
     console.error("News fetch error:", err);

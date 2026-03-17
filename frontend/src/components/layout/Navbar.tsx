@@ -5,22 +5,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Swords,
-  TrendingUp,
-  Globe,
-  Sparkles,
-  User,
-  Menu,
-  X,
-} from "lucide-react";
+  IconSword,
+  IconTrendingUp,
+  IconWorld,
+  IconSparkles,
+  IconUserCircle,
+  IconMenu2,
+  IconX,
+} from "@tabler/icons-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
 const navItems = [
-  { label: "Arena", href: "/", icon: Swords },
-  { label: "Trending", href: "/trending", icon: TrendingUp },
-  { label: "Globe", href: "/globe", icon: Globe },
-  { label: "What If", href: "/whatif", icon: Sparkles },
-  { label: "Profile", href: "/profile", icon: User },
+  { label: "Arena", href: "/", icon: IconSword },
+  { label: "Trending", href: "/trending", icon: IconTrendingUp },
+  { label: "Globe", href: "/globe", icon: IconWorld },
+  { label: "What If", href: "/whatif", icon: IconSparkles },
+  { label: "Profile", href: "/profile", icon: IconUserCircle },
 ];
 
 export default function Navbar() {
@@ -152,7 +152,7 @@ export default function Navbar() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+            {mobileOpen ? <IconX size={24} stroke={1.5} /> : <IconMenu2 size={24} stroke={1.5} />}
           </button>
         </div>
       </motion.nav>

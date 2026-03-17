@@ -6,6 +6,7 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 import Button from "@/components/ui/Button";
 import SummoningSmoke from "./SummoningSmoke";
 import NewsletterModal from "./NewsletterModal";
+import { IconShieldCheckFilled } from "@tabler/icons-react";
 
 /*
   "Summoning Scroll" — Newsletter CTA Section
@@ -113,7 +114,7 @@ export default function SummoningScroll() {
             animate={inView ? { opacity: 0.6 } : {}}
             transition={{ delay: 0.8 }}
           >
-            🛡 Maximum once daily. You confirm every send.
+            <IconShieldCheckFilled size={14} className="inline-block mr-1 -mt-0.5" /> Maximum once daily. You confirm every send.
           </motion.p>
         </div>
       </section>

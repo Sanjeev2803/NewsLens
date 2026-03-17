@@ -37,19 +37,46 @@ const REDDIT_SUBS: Record<string, string[]> = {
   in_en: ["india", "IndiaSpeaks", "indianews", "bollywood", "Cricket", "IndianGaming"],
 
   // International — deep country coverage
-  us_en: ["news", "politics", "usanews", "AmericanPolitics", "technology", "worldnews", "nba", "nfl"],
+  us_en: ["news", "politics", "usanews", "AmericanPolitics", "technology", "nba", "nfl"],
   gb_en: ["unitedkingdom", "ukpolitics", "CasualUK", "BritishProblems", "soccer", "london"],
   jp_en: ["japan", "japanlife", "newsokur", "japannews", "anime", "JapanTravel"],
+  jp_ja: ["japan", "newsokur", "japannews", "lowlevelaware", "anime"],
   au_en: ["australia", "AustralianPolitics", "melbourne", "sydney", "AFL", "NRL"],
   ca_en: ["canada", "onguardforthee", "CanadaPolitics", "toronto", "vancouver", "hockey", "canadanews"],
-  de_en: ["germany", "de", "berlin", "Munich", "bundesliga"],
-  fr_en: ["france", "rance", "paris", "Ligue1", "europe"],
-  br_en: ["brazil", "brasilivre", "futebol", "saopaulo"],
-  cn_en: ["China", "worldnews", "Sino", "HongKong"],
-  ru_en: ["worldnews", "UkrainianConflict", "europe"],
-  za_en: ["southafrica", "capetown", "johannesburg"],
+  de_en: ["germany", "de", "berlin", "Munich", "bundesliga", "europe"],
+  de_de: ["de", "ich_iel", "berlin", "Munich", "bundesliga"],
+  fr_en: ["france", "paris", "Ligue1", "europe", "French"],
+  fr_fr: ["france", "rance", "paris", "Ligue1", "FranceDetendue"],
+  br_en: ["brazil", "brasilivre", "futebol", "saopaulo", "riodejaneiro"],
+  br_pt: ["brasil", "brasilivre", "futebol", "saopaulo"],
+  cn_en: ["China", "Sino", "HongKong", "ChineseHistory"],
+  cn_zh: ["China_irl", "real_China_irl", "HongKong"],
+  ru_en: ["russia", "AskARussian", "europe", "UkrainianConflict"],
+  za_en: ["southafrica", "capetown", "johannesburg", "rugbyunion"],
+  es_en: ["spain", "madrid", "barcelona", "LaLiga"],
+  es_es: ["es", "spain", "LaLiga", "madrid"],
+  it_en: ["italy", "Italia", "SerieA", "rome", "florence"],
+  kr_en: ["korea", "hanguk", "kpop", "kdrama", "korean"],
+  mx_en: ["mexico", "mujico", "Monterrey", "LigaMX"],
+  ar_en: ["argentina", "AskArgentina", "fulbo"],
+  ae_en: ["dubai", "UAE", "abudhabi"],
+  sa_en: ["saudiarabia", "arabs", "riyadh"],
+  eg_en: ["Egypt", "cairo", "arabs"],
+  tr_en: ["Turkey", "TurkeyMeta", "istanbul"],
 
-  // Category-specific — thorough
+  // Country-specific category subs — so category filtering stays regional
+  in_sports: ["Cricket", "IndianSports", "CricketShitpost", "IndianFootball", "formula1india"],
+  in_entertainment: ["bollywood", "kollywood", "tollywood", "IndianCinema", "IndianMusic"],
+  in_technology: ["developersIndia", "IndianGaming", "startups", "technology"],
+  in_business: ["IndianStreetBets", "IndianStockMarket", "economy", "business"],
+  us_sports: ["nba", "nfl", "baseball", "MLS", "formula1"],
+  us_entertainment: ["movies", "television", "popculture", "Music", "celebrities"],
+  us_technology: ["technology", "programming", "gadgets", "MachineLearning", "startups"],
+  us_business: ["wallstreetbets", "stocks", "finance", "economy", "business"],
+  gb_sports: ["soccer", "PremierLeague", "rugbyunion", "Cricket", "formula1"],
+  gb_entertainment: ["movies", "television", "BritishTV", "Music"],
+
+  // Generic category fallbacks (when no country-specific exists)
   sports: ["sports", "soccer", "Cricket", "nba", "formula1", "tennis", "olympics", "MMA", "boxing"],
   entertainment: ["movies", "television", "bollywood", "tollywood", "kollywood", "anime", "Music", "popculture", "celebrities"],
   technology: ["technology", "programming", "gadgets", "android", "apple", "MachineLearning", "artificial", "startups"],
@@ -61,16 +88,17 @@ const REDDIT_SUBS: Record<string, string[]> = {
 };
 
 function getRedditSubs(country: string, lang: string, category: string): string[] {
-  // Category-specific subs
+  // Category-specific: try country-specific category subs first, then generic
   if (category !== "general" && category !== "nation" && category !== "world") {
+    const countryCatKey = `${country}_${category}`;
+    if (REDDIT_SUBS[countryCatKey]) return REDDIT_SUBS[countryCatKey];
     return REDDIT_SUBS[category] || REDDIT_SUBS.sports;
   }
 
-  // Regional subs
+  // Regional subs — try exact lang match, then country fallback
   const key = `${country}_${lang}`;
   if (REDDIT_SUBS[key]) return REDDIT_SUBS[key];
 
-  // Country fallback
   const countryKey = `${country}_en`;
   if (REDDIT_SUBS[countryKey]) return REDDIT_SUBS[countryKey];
 
@@ -111,15 +139,30 @@ export async function fetchRedditTrending(
           const d = p.data;
           const preview = d.preview as { images?: Array<{ source?: { url?: string }; resolutions?: Array<{ url?: string; width?: number }> }> } | undefined;
 
-          // Always prefer high-res source image over blurry thumbnail
-          const sourceImg = preview?.images?.[0]?.source?.url;
-          // Fallback: pick the highest resolution available
+          // Use a mid-resolution Reddit image — source images can be huge and OOM the browser
           const resolutions = preview?.images?.[0]?.resolutions || [];
-          const bestRes = resolutions.length > 0 ? resolutions[resolutions.length - 1]?.url : null;
-          // Last resort: thumbnail (blurry, avoid if possible)
+          // Pick a ~640px resolution (index 3-4 out of 0-5 typically)
+          const midRes = resolutions.length > 2 ? resolutions[Math.min(3, resolutions.length - 1)]?.url : null;
           const thumbnail = d.thumbnail && String(d.thumbnail).startsWith("http") ? String(d.thumbnail) : null;
 
-          const image = (sourceImg || bestRes || thumbnail || null);
+          // Gallery posts — Reddit stores images in media_metadata
+          let galleryImage: string | null = null;
+          const galleryData = d.gallery_data as { items?: Array<{ media_id: string }> } | undefined;
+          const mediaMetadata = d.media_metadata as Record<string, { s?: { u?: string } }> | undefined;
+          if (galleryData?.items && mediaMetadata) {
+            const firstItem = galleryData.items[0];
+            const meta = mediaMetadata[firstItem?.media_id];
+            if (meta?.s?.u) {
+              galleryImage = String(meta.s.u).replace(/&amp;/g, "&");
+            }
+          }
+
+          // Crosspost fallback
+          const crosspostParent = d.crosspost_parent_list as Array<{ preview?: typeof preview }> | undefined;
+          const crosspostImg = crosspostParent?.[0]?.preview?.images?.[0]?.resolutions;
+          const crosspostMid = crosspostImg && crosspostImg.length > 2 ? crosspostImg[Math.min(3, crosspostImg.length - 1)]?.url : null;
+
+          const image = (midRes || galleryImage || crosspostMid || thumbnail || null);
 
           return {
             title: String(d.title || ""),
@@ -288,13 +331,11 @@ export async function fetchWikipediaTrending(lang: string = "en"): Promise<Socia
 
     return articles.slice(0, 8).map((a: Record<string, unknown>) => {
       const thumb = a.thumbnail as { source?: string; width?: number } | undefined;
-      // Upgrade Wikipedia thumbnail to higher resolution (replace /NNNpx- with /800px-)
+      // Use a capped thumbnail size — original images can be 10,000+ px and OOM the browser
       let image = thumb?.source || null;
       if (image && image.includes("/thumb/")) {
-        image = image.replace(/\/\d+px-/, "/800px-");
+        image = image.replace(/\/\d+px-/, "/400px-");
       }
-      const orig = a.originalimage as { source?: string } | undefined;
-      if (orig?.source) image = orig.source; // Use original full-res if available
 
       return {
         title: String(a.normalizedtitle || a.title || ""),
@@ -322,18 +363,36 @@ const BLUESKY_QUERIES: Record<string, string> = {
   in_mr: "Mumbai OR Maharashtra OR Marathi OR Pune",
   in_kn: "Bangalore OR Karnataka OR Kannada",
   in_ml: "Kerala OR Malayalam OR Kochi",
+  in_gu: "Gujarat OR Ahmedabad OR Surat",
+  in_pa: "Punjab OR Chandigarh OR Sikh",
+  in_ur: "Hyderabad OR Lucknow OR Urdu",
   in_en: "India news breaking trending",
   us_en: "USA news breaking America politics",
   gb_en: "UK news breaking Britain London",
   ca_en: "Canada news Toronto Ottawa breaking",
   au_en: "Australia news Sydney Melbourne breaking",
   jp_en: "Japan news Tokyo breaking",
+  jp_ja: "日本 ニュース 東京",
   de_en: "Germany news Berlin breaking",
+  de_de: "Deutschland Nachrichten Berlin",
   fr_en: "France news Paris breaking",
+  fr_fr: "France actualités Paris",
   br_en: "Brazil news breaking",
+  br_pt: "Brasil notícias",
   cn_en: "China news breaking",
+  cn_zh: "中国 新闻",
   ru_en: "Russia news breaking",
   za_en: "South Africa news breaking",
+  es_en: "Spain news Madrid Barcelona breaking",
+  es_es: "España noticias Madrid",
+  it_en: "Italy news Rome Milan breaking",
+  kr_en: "Korea news Seoul K-pop breaking",
+  mx_en: "Mexico news breaking",
+  ar_en: "Argentina news Buenos Aires breaking",
+  ae_en: "UAE Dubai Abu Dhabi news breaking",
+  sa_en: "Saudi Arabia Riyadh news breaking",
+  eg_en: "Egypt Cairo news breaking",
+  tr_en: "Turkey Istanbul news breaking",
 };
 
 export function getBlueskyQuery(country: string, lang: string, category: string): string {

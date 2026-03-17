@@ -3,6 +3,17 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { timeAgo } from "@/lib/utils";
+import {
+  IconLayoutGrid,
+  IconCpu,
+  IconWorld,
+  IconBallFootball,
+  IconMovie,
+  IconFlask,
+  IconChartBar,
+  IconHeartbeat,
+} from "@tabler/icons-react";
 
 interface Article {
   title: string;
@@ -20,25 +31,15 @@ const SENTIMENT_COLORS: Record<string, string> = {
 };
 
 const SEAL_FILTERS = [
-  { label: "All", icon: "☰", category: "general" },
-  { label: "Tech", icon: "⚡", category: "technology" },
-  { label: "World", icon: "🌐", category: "world" },
-  { label: "Sports", icon: "⚽", category: "sports" },
-  { label: "Entertainment", icon: "🎬", category: "entertainment" },
-  { label: "Science", icon: "🔬", category: "science" },
-  { label: "Business", icon: "📊", category: "business" },
-  { label: "Health", icon: "🏥", category: "health" },
+  { label: "All", icon: IconLayoutGrid, category: "general" },
+  { label: "Tech", icon: IconCpu, category: "technology" },
+  { label: "World", icon: IconWorld, category: "world" },
+  { label: "Sports", icon: IconBallFootball, category: "sports" },
+  { label: "Entertainment", icon: IconMovie, category: "entertainment" },
+  { label: "Science", icon: IconFlask, category: "science" },
+  { label: "Business", icon: IconChartBar, category: "business" },
+  { label: "Health", icon: IconHeartbeat, category: "health" },
 ];
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function ScrollCard({
   article,
@@ -216,7 +217,7 @@ export default function BreakingScrolls() {
                 : `${textSecondary} hover:${textPrimary}`
             }`}
           >
-            <span className="mr-1">{f.icon}</span>
+            <f.icon size={16} stroke={1.5} className="mr-1 inline-block" />
             {f.label}
             {activeFilter === f.label && (
               <motion.div

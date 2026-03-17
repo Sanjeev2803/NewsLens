@@ -18,7 +18,7 @@
 
 import { XMLParser } from "fast-xml-parser";
 
-const xmlParser = new XMLParser({
+export const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   isArray: (tagName) => ["item", "entry"].includes(tagName),
@@ -193,8 +193,8 @@ export async function fetchGoogleNews(params: FetchParams): Promise<NewsArticle[
   });
 
   // For Google News articles without images, try fetching OG images
-  // from the source website (limit to 12 concurrent — more fallback attempts)
-  const needImages = articles.filter((a) => !a.image).slice(0, 12);
+  // from the source website (limit to 5 concurrent to avoid memory pressure)
+  const needImages = articles.filter((a) => !a.image).slice(0, 5);
   if (needImages.length > 0) {
     const ogResults = await Promise.allSettled(
       needImages.map(async (a) => {
@@ -507,21 +507,12 @@ export async function fetchAllNews(params: FetchParams): Promise<{
   const allArticles: NewsArticle[] = [];
   const activeSources: string[] = [];
 
-  // Tier 1: Free sources (always available, no key needed)
-  const tier1 = await Promise.allSettled([
+  // All sources in parallel — no reason for sequential tiers
+  const allResults = await Promise.allSettled([
+    // Tier 1: Free (always available)
     fetchGoogleNews(params).then((a) => ({ name: "Google News", articles: a })),
     fetchRSSFeeds(params).then((a) => ({ name: "RSS Feeds (BBC/TOI/AJ)", articles: a })),
-  ]);
-
-  for (const r of tier1) {
-    if (r.status === "fulfilled" && r.value.articles.length > 0) {
-      allArticles.push(...r.value.articles);
-      activeSources.push(r.value.name);
-    }
-  }
-
-  // Tier 2: API sources (need keys, used as enrichment/backup)
-  const tier2 = await Promise.allSettled([
+    // Tier 2: API (need keys, fail gracefully if missing)
     fetchGNews(params).then((a) => ({ name: "GNews", articles: a })),
     fetchNewsData(params).then((a) => ({ name: "NewsData.io", articles: a })),
     fetchCurrentsAPI(params).then((a) => ({ name: "Currents API", articles: a })),
@@ -529,7 +520,7 @@ export async function fetchAllNews(params: FetchParams): Promise<{
     fetchGuardian(params).then((a) => ({ name: "The Guardian", articles: a })),
   ]);
 
-  for (const r of tier2) {
+  for (const r of allResults) {
     if (r.status === "fulfilled" && r.value.articles.length > 0) {
       allArticles.push(...r.value.articles);
       activeSources.push(r.value.name);

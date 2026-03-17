@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllSocial } from "@/lib/socialSources";
+import { cachedFetch } from "@/lib/cache";
 
 // ── Bing Image Search fallback for social posts missing images ──
 async function searchBingImage(query: string): Promise<string | null> {
@@ -44,25 +45,35 @@ export async function GET(req: NextRequest) {
   const lang = searchParams.get("lang") || "en";
   const category = searchParams.get("category") || "general";
 
+  const cacheKey = `social:${category}:${country}:${lang}`;
+
   try {
-    const result = await fetchAllSocial(country, lang, category);
+    const result = await cachedFetch(
+      cacheKey,
+      async () => {
+        const data = await fetchAllSocial(country, lang, category);
 
-    // Enrich: fill missing images via Bing search
-    const needsImage = result.posts
-      .map((p, i) => (!p.image ? i : -1))
-      .filter((i) => i >= 0);
+        // Enrich: fill missing images via Bing search (runs inside cache)
+        const needsImage = data.posts
+          .map((p, i) => (!p.image ? i : -1))
+          .filter((i) => i >= 0);
 
-    if (needsImage.length > 0) {
-      const imgResults = await Promise.allSettled(
-        needsImage.map((idx) => searchBingImage(result.posts[idx].title))
-      );
-      for (let j = 0; j < needsImage.length; j++) {
-        const r = imgResults[j];
-        if (r.status === "fulfilled" && r.value) {
-          result.posts[needsImage[j]].image = r.value;
+        if (needsImage.length > 0) {
+          const imgResults = await Promise.allSettled(
+            needsImage.map((idx) => searchBingImage(data.posts[idx].title))
+          );
+          for (let j = 0; j < needsImage.length; j++) {
+            const r = imgResults[j];
+            if (r.status === "fulfilled" && r.value) {
+              data.posts[needsImage[j]].image = r.value;
+            }
+          }
         }
-      }
-    }
+
+        return data;
+      },
+      { ttlMs: 5 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 } // 5min fresh, 10min stale grace
+    );
 
     return NextResponse.json(result);
   } catch (err) {

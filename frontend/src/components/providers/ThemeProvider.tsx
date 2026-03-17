@@ -14,14 +14,12 @@ interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
   isItachi: boolean;
-  isHokage: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
   toggleTheme: () => {},
   isItachi: true,
-  isHokage: false,
 });
 
 export function useTheme() {
@@ -51,7 +49,6 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
         theme,
         toggleTheme,
         isItachi: theme === "dark",
-        isHokage: theme === "light",
       }}
     >
       {children}

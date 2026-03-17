@@ -43,17 +43,6 @@ export const VERIFICATION_LEVELS = [
   { level: 3, label: "Fact-Checked", color: COLORS.sageGreen },
 ] as const;
 
-// ── API ──
-
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-export const SWR_CONFIG = {
-  revalidateOnFocus: false,
-  dedupingInterval: 5000,
-  errorRetryCount: 3,
-};
-
 // ── Navigation ──
 
 export const NAV_ITEMS = [

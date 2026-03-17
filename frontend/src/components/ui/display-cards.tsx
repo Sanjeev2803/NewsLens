@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Sparkles } from "lucide-react";
+import { IconSparkles } from "@tabler/icons-react";
 
 interface DisplayCardProps {
   className?: string;
@@ -18,7 +18,7 @@ interface DisplayCardProps {
 
 function DisplayCard({
   className,
-  icon = <Sparkles className="size-4 text-blue-300" />,
+  icon = <IconSparkles size={16} className="text-blue-300" stroke={1.5} />,
   title = "Featured",
   description = "Discover amazing content",
   date = "Just now",

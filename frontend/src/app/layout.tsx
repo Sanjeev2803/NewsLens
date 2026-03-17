@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Rajdhani, JetBrains_Mono, Noto_Sans_JP, Geist } from "next/font/google";
 import "./globals.css";
 import TransitionWrapper from "@/components/layout/TransitionWrapper";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -50,7 +51,9 @@ export default function RootLayout({
         <a href="#main-content" className="skip-to-content">
           Skip to content
         </a>
-        <TransitionWrapper>{children}</TransitionWrapper>
+        <ErrorBoundary>
+          <TransitionWrapper>{children}</TransitionWrapper>
+        </ErrorBoundary>
       </body>
     </html>
   );
