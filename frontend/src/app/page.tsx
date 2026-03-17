@@ -1,11 +1,9 @@
 import HeroSection from "@/components/home/HeroSection";
-import CrowScatter from "@/components/home/CrowScatter";
-import SealDivider from "@/components/home/SealDivider";
 import BreakingScrolls from "@/components/home/BreakingScrolls";
-import ChakraPulse from "@/components/home/ChakraPulse";
-import SummoningScroll from "@/components/home/SummoningScroll";
-import PowerLevels from "@/components/home/PowerLevels";
-import JoinVillage from "@/components/home/JoinVillage";
+import NewsPulseMap from "@/components/home/NewsPulseMap";
+import WhatsHot from "@/components/home/WhatsHot";
+import PerspectiveLens from "@/components/home/PerspectiveLens";
+import FeaturePeeks from "@/components/home/FeaturePeeks";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -14,23 +12,23 @@ export default function Home() {
     <>
       <Navbar />
       <main id="main-content" className="min-h-screen pt-18">
+        {/* Brand identity */}
         <HeroSection />
-        <CrowScatter />
 
-        <SealDivider seal="tiger" />
+        {/* Live news feed — editorial grid with trending ticker */}
         <BreakingScrolls />
 
-        <SealDivider seal="snake" />
-        <ChakraPulse />
+        {/* Interactive world heatmap — live news hotspots */}
+        <NewsPulseMap />
 
-        <SealDivider seal="dragon" />
-        <SummoningScroll />
+        {/* Viral per category — sports, tech, entertainment */}
+        <WhatsHot />
 
-        <SealDivider seal="ram" />
-        <PowerLevels />
+        {/* Multi-platform perspective — same story, different platforms */}
+        <PerspectiveLens />
 
-        <SealDivider seal="tiger" />
-        <JoinVillage />
+        {/* Sneak peeks — What If, Creator Hub, Newsletter */}
+        <FeaturePeeks />
       </main>
       <Footer />
     </>
