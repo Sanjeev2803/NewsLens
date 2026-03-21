@@ -24,6 +24,8 @@ const MAX_CONCURRENT_FETCHES = 6;
 let activeFetches = 0;
 const fetchQueue: (() => void)[] = [];
 
+const MAX_QUEUE_SIZE = 50;
+
 function throttledFetch(url: string, options?: RequestInit): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
     function run() {
@@ -37,8 +39,10 @@ function throttledFetch(url: string, options?: RequestInit): Promise<Response> {
     }
     if (activeFetches < MAX_CONCURRENT_FETCHES) {
       run();
-    } else {
+    } else if (fetchQueue.length < MAX_QUEUE_SIZE) {
       fetchQueue.push(run);
+    } else {
+      reject(new Error("Fetch queue full"));
     }
   });
 }

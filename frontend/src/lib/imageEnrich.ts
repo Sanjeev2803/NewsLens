@@ -123,7 +123,17 @@ async function searchImageForHeadline(query: string): Promise<string | null> {
     clearTimeout(timeout);
     if (!res.ok) return null;
 
-    const html = await res.text();
+    // Read up to 100KB — Bing embeds image URLs early in the page
+    const reader = res.body?.getReader();
+    if (!reader) return null;
+    let html = "";
+    const decoder = new TextDecoder();
+    while (html.length < 100_000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+    }
+    reader.cancel();
 
     const murlMatches = [...html.matchAll(/murl[&quot;]*[=:][&quot;]*["']?(https?:\/\/[^"'&]+\.(?:jpg|jpeg|png|webp)[^"'&]*)/gi)];
     for (const m of murlMatches) {

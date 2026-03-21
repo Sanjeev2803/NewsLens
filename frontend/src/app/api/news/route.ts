@@ -33,10 +33,10 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category") || "general";
   const country = searchParams.get("country") || "in";
   const lang = searchParams.get("lang") || "en";
-  const max = parseInt(searchParams.get("max") || "10", 10);
+  const max = Math.min(parseInt(searchParams.get("max") || "10", 10) || 10, 50);
 
-  // Cache diagnostics endpoint
-  if (searchParams.get("_cache") === "status") {
+  // Cache diagnostics — dev only
+  if (process.env.NODE_ENV === "development" && searchParams.get("_cache") === "status") {
     return NextResponse.json(getCacheStats());
   }
 

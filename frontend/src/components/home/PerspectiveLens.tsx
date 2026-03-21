@@ -130,6 +130,7 @@ export default function PerspectiveLens() {
     try {
       // Fetch social data — the API already has Reddit, Bluesky, YouTube, Wikipedia
       const res = await fetch(`/api/social?country=in&lang=en&category=general`);
+      if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       const posts = data.posts || [];
 
