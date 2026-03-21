@@ -353,6 +353,27 @@ function isQualityArticle(a: NewsArticle): boolean {
   return true;
 }
 
+// ── Bigram similarity — fuzzy title dedup ──
+function getBigrams(str: string): Set<string> {
+  const bigrams = new Set<string>();
+  const words = str.split(/\s+/);
+  for (let i = 0; i < words.length - 1; i++) {
+    bigrams.add(words[i] + " " + words[i + 1]);
+  }
+  return bigrams;
+}
+
+function bigramSimilarity(a: string, b: string): number {
+  const bigramsA = getBigrams(a);
+  const bigramsB = getBigrams(b);
+  if (bigramsA.size === 0 || bigramsB.size === 0) return 0;
+  let overlap = 0;
+  for (const bg of bigramsA) {
+    if (bigramsB.has(bg)) overlap++;
+  }
+  return (2 * overlap) / (bigramsA.size + bigramsB.size);
+}
+
 // ── Master Aggregator with Fallback Chain ──
 
 export async function fetchAllNews(params: FetchParams): Promise<{
@@ -375,13 +396,18 @@ export async function fetchAllNews(params: FetchParams): Promise<{
     }
   }
 
-  // Deduplicate by title similarity
-  const seen = new Set<string>();
+  // Deduplicate by fuzzy title similarity (bigram overlap)
+  const seenTitles: string[] = [];
   const unique = allArticles.filter((a) => {
     if (!a.title) return false;
-    const key = a.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 50);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
+    const normalized = a.title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+    if (!normalized) return false;
+
+    // Check against all seen titles for similarity
+    for (const seen of seenTitles) {
+      if (bigramSimilarity(normalized, seen) > 0.55) return false;
+    }
+    seenTitles.push(normalized);
     return true;
   });
 

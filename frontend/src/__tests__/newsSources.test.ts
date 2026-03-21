@@ -138,3 +138,54 @@ describe("quality filter logic", () => {
     })).toBe(false);
   });
 });
+
+describe("bigram similarity", () => {
+  // Re-implement locally to test the logic
+  function getBigrams(str: string): Set<string> {
+    const bigrams = new Set<string>();
+    const words = str.split(/\s+/);
+    for (let i = 0; i < words.length - 1; i++) {
+      bigrams.add(words[i] + " " + words[i + 1]);
+    }
+    return bigrams;
+  }
+
+  function bigramSimilarity(a: string, b: string): number {
+    const bigramsA = getBigrams(a);
+    const bigramsB = getBigrams(b);
+    if (bigramsA.size === 0 || bigramsB.size === 0) return 0;
+    let overlap = 0;
+    for (const bg of bigramsA) {
+      if (bigramsB.has(bg)) overlap++;
+    }
+    return (2 * overlap) / (bigramsA.size + bigramsB.size);
+  }
+
+  it("returns 1.0 for identical strings", () => {
+    expect(bigramSimilarity("supreme court rules on privacy", "supreme court rules on privacy")).toBe(1);
+  });
+
+  it("returns 0 for completely different strings", () => {
+    expect(bigramSimilarity("cricket match today", "stock market crashes")).toBe(0);
+  });
+
+  it("detects similar headlines from different sources", () => {
+    const sim = bigramSimilarity(
+      "supreme court rules on major privacy case today",
+      "supreme court rules on privacy case in landmark decision"
+    );
+    expect(sim).toBeGreaterThan(0.5);
+  });
+
+  it("allows genuinely different articles through", () => {
+    const sim = bigramSimilarity(
+      "india wins cricket world cup final",
+      "supreme court rules on privacy case"
+    );
+    expect(sim).toBeLessThan(0.3);
+  });
+
+  it("handles single word strings", () => {
+    expect(bigramSimilarity("hello", "world")).toBe(0);
+  });
+});

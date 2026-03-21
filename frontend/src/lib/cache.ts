@@ -118,6 +118,14 @@ export async function cachedFetch<T>(
   return promise;
 }
 
+/** Update an existing cache entry in-place (e.g., after background enrichment) */
+export function updateCacheEntry<T>(key: string, updater: (data: T) => T): void {
+  const entry = store.get(key) as CacheEntry<T> | undefined;
+  if (entry) {
+    entry.data = updater(entry.data);
+  }
+}
+
 /** Diagnostic — call from API route with ?_cache=status */
 export function getCacheStats() {
   const entries: Record<string, { ageSeconds: number; fresh: boolean }> = {};

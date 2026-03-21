@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { LANGUAGE_STATE_MAP, fetchGoogleTrends, getRegionalGeo, fetchRegionalFeeds } from "@/lib/regionalSources";
-import { cachedFetch, getCacheStats } from "@/lib/cache";
+import { cachedFetch, getCacheStats, updateCacheEntry } from "@/lib/cache";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { enrichArticleImages } from "@/lib/imageEnrich";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Track which cache keys have been enriched to avoid duplicate background work
+const enrichedKeys = new Set<string>();
 
 const COUNTRIES_MAP: Record<string, string> = {
   in: "india", us: "united states", gb: "united kingdom", jp: "japan",
@@ -116,10 +119,8 @@ export async function GET(req: NextRequest) {
         const oneHourAgo = Date.now() - 60 * 60 * 1000;
         const freshCount = unique.filter((a: any) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
 
-        const enrichedArticles = await enrichArticleImages(unique.slice(0, 30));
-
         return {
-          articles: enrichedArticles,
+          articles: unique.slice(0, 30),
           totalArticles: unique.length,
           freshCount,
           sources: allSources,
@@ -129,6 +130,22 @@ export async function GET(req: NextRequest) {
       },
       { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
     );
+
+    // ── Background image enrichment — don't block the response ──
+    if (!enrichedKeys.has(cacheKey)) {
+      enrichedKeys.add(cacheKey);
+      // Fire and forget — enriches images and updates cache in-place
+      enrichArticleImages([...result.articles]).then((enriched) => {
+        updateCacheEntry(cacheKey, (cached: any) => ({
+          ...cached,
+          articles: enriched,
+        }));
+      }).catch(() => {
+        // Enrichment failed — articles still work without enriched images
+      });
+      // Clean up tracking after cache TTL to allow re-enrichment on next cycle
+      setTimeout(() => enrichedKeys.delete(cacheKey), 3 * 60 * 1000);
+    }
 
     return NextResponse.json(
       { ...result, articles: result.articles.slice(0, max) },
