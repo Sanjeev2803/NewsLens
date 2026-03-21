@@ -1,19 +1,14 @@
 /*
-  Multi-Source News Aggregator — 10 sources with automatic fallback
+  Multi-Source News Aggregator — all free RSS, no API keys needed.
 
-  FREE (no key needed):
-    1. Google News RSS — unlimited, supports country/lang/category
-    2. BBC RSS — free, reliable, has media:thumbnail images
-    3. Reuters RSS — free, global coverage
-    4. Al Jazeera RSS — free, international
-    5. Times of India RSS — free, India focus, has enclosure images
-
-  API KEY (free tier):
-    6. GNews — 100 req/day
-    7. NewsData.io — 200 credits/day
-    8. Currents API — 600 req/day
-    9. NewsAPI.org — 100 req/day (dev only)
-    10. The Guardian — 5000 req/day (generous)
+  Source 1: Google News RSS — unlimited, supports country/lang/category
+  Source 2: RSS Feeds — 20+ feeds across countries and categories:
+    India: TOI, BBC India, Hindustan Times, Indian Express, The Hindu, Economic Times, NDTV
+    US: NPR, CBS, BBC US, NYT
+    UK: BBC UK, The Guardian, Sky News
+    Categories: BBC Sport, ESPN, ESPNcricinfo, TechCrunch, Wired, The Verge,
+                Variety, Deadline, Hollywood Reporter, MarketWatch, ScienceDaily,
+                Nature, Al Jazeera, Guardian World, Independent, Sky News World
 */
 
 import { XMLParser } from "fast-xml-parser";
@@ -23,6 +18,30 @@ export const xmlParser = new XMLParser({
   attributeNamePrefix: "@_",
   isArray: (tagName) => ["item", "entry"].includes(tagName),
 });
+
+// ── Global concurrency limiter — prevents flooding external servers on cold cache ──
+const MAX_CONCURRENT_FETCHES = 6;
+let activeFetches = 0;
+const fetchQueue: (() => void)[] = [];
+
+function throttledFetch(url: string, options?: RequestInit): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    function run() {
+      activeFetches++;
+      fetch(url, options)
+        .then(resolve, reject)
+        .finally(() => {
+          activeFetches--;
+          if (fetchQueue.length > 0) fetchQueue.shift()!();
+        });
+    }
+    if (activeFetches < MAX_CONCURRENT_FETCHES) {
+      run();
+    } else {
+      fetchQueue.push(run);
+    }
+  });
+}
 
 // ── Common Types ──
 
@@ -82,54 +101,6 @@ function extractRSSImage(item: any): string | null {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-// ── OG Image Fetcher (for articles without images) ──
-
-async function fetchOGImage(articleUrl: string): Promise<string | null> {
-  try {
-    // Skip Google News redirect URLs
-    if (articleUrl.includes("news.google.com")) return null;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-
-    const res = await fetch(articleUrl, {
-      signal: controller.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsLens/1.0)" },
-      redirect: "follow",
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) return null;
-
-    // Only read first 20KB to find og:image
-    const reader = res.body?.getReader();
-    if (!reader) return null;
-
-    let html = "";
-    const decoder = new TextDecoder();
-    while (html.length < 20000) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-    }
-    reader.cancel();
-
-    // Look for og:image
-    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    if (ogMatch) return ogMatch[1];
-
-    // Fallback to twitter:image
-    const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
-    if (twMatch) return twMatch[1];
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 // ── Google News RSS (Source 1 — PRIMARY, free, unlimited) ──
 
 const GOOGLE_NEWS_TOPICS: Record<string, string> = {
@@ -168,7 +139,7 @@ export async function fetchGoogleNews(params: FetchParams): Promise<NewsArticle[
     url = `https://news.google.com/rss?hl=${hl}&gl=${countryInfo.gl}&ceid=${countryInfo.gl}:${hl}`;
   }
 
-  const res = await fetch(url, { next: { revalidate: 60 } });
+  const res = await throttledFetch(url, { redirect: "follow" });
   if (!res.ok) throw new Error(`Google News RSS: ${res.status}`);
 
   const xml = await res.text();
@@ -176,7 +147,7 @@ export async function fetchGoogleNews(params: FetchParams): Promise<NewsArticle[
   const items = parsed?.rss?.channel?.item || [];
   const arr = Array.isArray(items) ? items : [items];
 
-  const articles = arr.slice(0, params.max).map((item: Record<string, any>) => {
+  return arr.slice(0, params.max).map((item: Record<string, any>) => {
     const sourceName = typeof item.source === "object"
       ? item.source["#text"] || "Google News"
       : String(item.source || "Google News");
@@ -191,29 +162,6 @@ export async function fetchGoogleNews(params: FetchParams): Promise<NewsArticle[
       source: { name: sourceName, url: sourceUrl },
     };
   });
-
-  // For Google News articles without images, try fetching OG images
-  // from the source website (limit to 5 concurrent to avoid memory pressure)
-  const needImages = articles.filter((a) => !a.image).slice(0, 5);
-  if (needImages.length > 0) {
-    const ogResults = await Promise.allSettled(
-      needImages.map(async (a) => {
-        // Google News URLs redirect — try the source URL domain's article
-        // Skip google redirect URLs, fetch from source website
-        const targetUrl = a.url.includes("news.google.com") ? a.source.url : a.url;
-        if (!targetUrl || targetUrl.length < 10) return null;
-        return fetchOGImage(targetUrl);
-      })
-    );
-    needImages.forEach((a, i) => {
-      const r = ogResults[i];
-      if (r.status === "fulfilled" && r.value) {
-        a.image = r.value;
-      }
-    });
-  }
-
-  return articles;
 }
 
 // ── RSS Feed Sources (Sources 2-5 — free, no key) ──
@@ -223,11 +171,17 @@ const COUNTRY_RSS: Record<string, { name: string; url: string }[]> = {
   in: [
     { name: "Times of India", url: "https://timesofindia.indiatimes.com/rssfeedstopstories.cms" },
     { name: "BBC India", url: "https://feeds.bbci.co.uk/news/world/south_asia/rss.xml" },
+    { name: "Hindustan Times", url: "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml" },
+    { name: "Indian Express", url: "https://indianexpress.com/section/india/feed/" },
+    { name: "The Hindu", url: "https://www.thehindu.com/news/national/feeder/default.rss" },
+    { name: "Economic Times", url: "https://economictimes.indiatimes.com/rssfeedstopstories.cms" },
+    { name: "NDTV", url: "https://feeds.feedburner.com/ndtv/latest" },
   ],
   us: [
     { name: "NPR", url: "https://feeds.npr.org/1001/rss.xml" },
     { name: "CBS News", url: "https://www.cbsnews.com/latest/rss/main" },
     { name: "BBC US", url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml" },
+    { name: "New York Times", url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
   ],
   gb: [
     { name: "BBC UK", url: "https://feeds.bbci.co.uk/news/uk/rss.xml" },
@@ -259,6 +213,7 @@ const COUNTRY_RSS: Record<string, { name: string; url: string }[]> = {
   ],
   br: [
     { name: "BBC Latin America", url: "https://feeds.bbci.co.uk/news/world/latin_america/rss.xml" },
+    { name: "The Guardian World", url: "https://www.theguardian.com/world/rss" },
   ],
   cn: [
     { name: "BBC Asia", url: "https://feeds.bbci.co.uk/news/world/asia/rss.xml" },
@@ -266,6 +221,7 @@ const COUNTRY_RSS: Record<string, { name: string; url: string }[]> = {
   ],
   ru: [
     { name: "BBC Europe", url: "https://feeds.bbci.co.uk/news/world/europe/rss.xml" },
+    { name: "The Independent", url: "https://www.independent.co.uk/news/world/rss" },
   ],
   za: [
     { name: "BBC Africa", url: "https://feeds.bbci.co.uk/news/world/africa/rss.xml" },
@@ -277,19 +233,30 @@ const CATEGORY_RSS: Record<string, { name: string; url: string }[]> = {
   sports: [
     { name: "BBC Sport", url: "https://feeds.bbci.co.uk/sport/rss.xml" },
     { name: "ESPN", url: "https://www.espn.com/espn/rss/news" },
+    { name: "BBC Cricket", url: "https://feeds.bbci.co.uk/sport/cricket/rss.xml" },
+    { name: "ESPNcricinfo", url: "https://www.espncricinfo.com/rss/content/story/feeds/0.xml" },
   ],
   technology: [
     { name: "BBC Tech", url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
     { name: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index" },
+    { name: "TechCrunch", url: "https://feeds.feedburner.com/TechCrunch/" },
+    { name: "Wired", url: "https://www.wired.com/feed/rss" },
+    { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
   ],
   entertainment: [
     { name: "BBC Entertainment", url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml" },
+    { name: "Variety", url: "https://variety.com/feed/" },
+    { name: "Deadline", url: "https://deadline.com/feed/" },
+    { name: "Hollywood Reporter", url: "https://www.hollywoodreporter.com/feed/" },
   ],
   business: [
     { name: "BBC Business", url: "https://feeds.bbci.co.uk/news/business/rss.xml" },
+    { name: "MarketWatch", url: "https://feeds.marketwatch.com/marketwatch/topstories/" },
   ],
   science: [
     { name: "BBC Science", url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" },
+    { name: "ScienceDaily", url: "https://www.sciencedaily.com/rss/all.xml" },
+    { name: "Nature", url: "https://www.nature.com/nature.rss" },
   ],
   health: [
     { name: "BBC Health", url: "https://feeds.bbci.co.uk/news/health/rss.xml" },
@@ -297,6 +264,9 @@ const CATEGORY_RSS: Record<string, { name: string; url: string }[]> = {
   world: [
     { name: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
     { name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml" },
+    { name: "The Guardian World", url: "https://www.theguardian.com/world/rss" },
+    { name: "The Independent", url: "https://www.independent.co.uk/news/world/rss" },
+    { name: "Sky News World", url: "https://feeds.skynews.com/feeds/rss/world.xml" },
   ],
   nation: [
     { name: "BBC", url: "https://feeds.bbci.co.uk/news/rss.xml" },
@@ -315,7 +285,7 @@ function getRSSFeeds(category: string, country: string): { name: string; url: st
 
 async function fetchSingleRSS(feedUrl: string, sourceName: string): Promise<NewsArticle[]> {
   try {
-    const res = await fetch(feedUrl, { next: { revalidate: 120 } });
+    const res = await throttledFetch(feedUrl);
     if (!res.ok) return [];
     const xml = await res.text();
     const parsed = xmlParser.parse(xml);
@@ -359,124 +329,6 @@ export async function fetchRSSFeeds(params: FetchParams): Promise<NewsArticle[]>
   return articles.slice(0, params.max);
 }
 
-// ── GNews API (Source 6) ──
-
-export async function fetchGNews(params: FetchParams): Promise<NewsArticle[]> {
-  const key = process.env.GNEWS_API_KEY;
-  if (!key) return [];
-
-  const url = `https://gnews.io/api/v4/top-headlines?category=${params.category}&lang=${params.lang}&country=${params.country}&max=${params.max}&apikey=${key}`;
-  const res = await fetch(url, { next: { revalidate: 60 } });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return (data.articles || []).map((a: any) => ({
-    title: a.title || "",
-    description: a.description || "",
-    url: a.url || "",
-    image: a.image || null,
-    publishedAt: a.publishedAt || new Date().toISOString(),
-    source: { name: a.source?.name || "GNews", url: a.source?.url || "" },
-  }));
-}
-
-// ── NewsData.io (Source 7) ──
-
-const NEWSDATA_CATEGORIES: Record<string, string> = {
-  general: "top", nation: "politics", world: "world", sports: "sports",
-  entertainment: "entertainment", technology: "technology", business: "business",
-  science: "science", health: "health",
-};
-
-export async function fetchNewsData(params: FetchParams): Promise<NewsArticle[]> {
-  const key = process.env.NEWSDATA_API_KEY;
-  if (!key) return [];
-
-  const cat = NEWSDATA_CATEGORIES[params.category] || "top";
-  const url = `https://newsdata.io/api/1/latest?apikey=${key}&country=${params.country}&language=${params.lang}&category=${cat}`;
-  const res = await fetch(url, { next: { revalidate: 120 } });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return (data.results || []).slice(0, params.max).map((a: any) => ({
-    title: a.title || "",
-    description: a.description || "",
-    url: a.link || "",
-    image: a.image_url || null,
-    publishedAt: a.pubDate || new Date().toISOString(),
-    source: { name: a.source_id || "NewsData", url: a.source_url || "" },
-  }));
-}
-
-// ── Currents API (Source 8) ──
-
-export async function fetchCurrentsAPI(params: FetchParams): Promise<NewsArticle[]> {
-  const key = process.env.CURRENTS_API_KEY;
-  if (!key) return [];
-
-  const url = `https://api.currentsapi.services/v1/latest-news?apiKey=${key}&language=${params.lang}&country=${params.country}&category=${params.category}`;
-  const res = await fetch(url, { next: { revalidate: 120 } });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return (data.news || []).slice(0, params.max).map((a: any) => ({
-    title: a.title || "",
-    description: a.description || "",
-    url: a.url || "",
-    image: a.image && a.image !== "None" ? a.image : null,
-    publishedAt: a.published || new Date().toISOString(),
-    source: { name: a.author || "Currents", url: "" },
-  }));
-}
-
-// ── NewsAPI.org (Source 9) ──
-
-export async function fetchNewsAPIOrg(params: FetchParams): Promise<NewsArticle[]> {
-  const key = process.env.NEWSAPI_ORG_KEY;
-  if (!key) return [];
-
-  const url = `https://newsapi.org/v2/top-headlines?country=${params.country}&category=${params.category}&pageSize=${params.max}&apiKey=${key}`;
-  const res = await fetch(url, { next: { revalidate: 120 } });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return (data.articles || []).slice(0, params.max).map((a: any) => ({
-    title: a.title || "",
-    description: a.description || "",
-    url: a.url || "",
-    image: a.urlToImage || null,
-    publishedAt: a.publishedAt || new Date().toISOString(),
-    source: { name: a.source?.name || "NewsAPI", url: "" },
-  }));
-}
-
-// ── The Guardian (Source 10) ──
-
-const GUARDIAN_SECTIONS: Record<string, string> = {
-  general: "news", nation: "world/india", world: "world", sports: "sport",
-  entertainment: "culture", technology: "technology", business: "business",
-  science: "science", health: "society",
-};
-
-export async function fetchGuardian(params: FetchParams): Promise<NewsArticle[]> {
-  const key = process.env.GUARDIAN_API_KEY;
-  if (!key) return [];
-
-  const section = GUARDIAN_SECTIONS[params.category] || "news";
-  const url = `https://content.guardianapis.com/search?section=${section}&show-fields=thumbnail,trailText&page-size=${params.max}&order-by=newest&api-key=${key}`;
-  const res = await fetch(url, { next: { revalidate: 120 } });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return (data.response?.results || []).slice(0, params.max).map((a: any) => ({
-    title: a.webTitle || "",
-    description: a.fields?.trailText || "",
-    url: a.webUrl || "",
-    image: a.fields?.thumbnail || null,
-    publishedAt: a.webPublicationDate || new Date().toISOString(),
-    source: { name: "The Guardian", url: "https://www.theguardian.com" },
-  }));
-}
 
 // ── Quality Filter — remove vague, clickbait, low-depth articles ──
 
@@ -507,17 +359,9 @@ export async function fetchAllNews(params: FetchParams): Promise<{
   const allArticles: NewsArticle[] = [];
   const activeSources: string[] = [];
 
-  // All sources in parallel — no reason for sequential tiers
   const allResults = await Promise.allSettled([
-    // Tier 1: Free (always available)
     fetchGoogleNews(params).then((a) => ({ name: "Google News", articles: a })),
-    fetchRSSFeeds(params).then((a) => ({ name: "RSS Feeds (BBC/TOI/AJ)", articles: a })),
-    // Tier 2: API (need keys, fail gracefully if missing)
-    fetchGNews(params).then((a) => ({ name: "GNews", articles: a })),
-    fetchNewsData(params).then((a) => ({ name: "NewsData.io", articles: a })),
-    fetchCurrentsAPI(params).then((a) => ({ name: "Currents API", articles: a })),
-    fetchNewsAPIOrg(params).then((a) => ({ name: "NewsAPI.org", articles: a })),
-    fetchGuardian(params).then((a) => ({ name: "The Guardian", articles: a })),
+    fetchRSSFeeds(params).then((a) => ({ name: "RSS Feeds", articles: a })),
   ]);
 
   for (const r of allResults) {

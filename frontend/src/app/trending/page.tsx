@@ -38,6 +38,7 @@ export default function TrendingPage() {
     setLoading(true); setError(null);
     try {
       const res = await fetch(`/api/news?category=${category}&country=${country}&lang=${lang}&max=12`);
+      if (!res.ok) { setError(`Server error (${res.status}). Try again.`); setLoading(false); return; }
       const data: ApiResponse = await res.json();
       if (data.error) { setError(data.error); setArticles([]); }
       else { setArticles(data.articles || []); setFreshCount(data.freshCount || 0); setActiveSources(data.sources || []); setTrending(data.trending || []); setRegion(data.region || null); }
@@ -46,8 +47,13 @@ export default function TrendingPage() {
   }, [category, country, lang]);
 
   const fetchSocial = useCallback(async () => {
-    try { const res = await fetch(`/api/social?country=${country}&lang=${lang}&category=${category}`); const data: SocialResponse = await res.json(); setSocialPosts(data.posts || []); setSocialPlatforms(data.platforms || []); }
-    catch { /* silent */ }
+    try {
+      const res = await fetch(`/api/social?country=${country}&lang=${lang}&category=${category}`);
+      if (!res.ok) return;
+      const data: SocialResponse = await res.json();
+      setSocialPosts(data.posts || []);
+      setSocialPlatforms(data.platforms || []);
+    } catch { /* social is supplementary — silent fallback */ }
   }, [country, lang, category]);
 
   useEffect(() => { fetchNews(); fetchSocial(); }, [fetchNews, fetchSocial]);

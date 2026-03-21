@@ -106,8 +106,11 @@ export async function cachedFetch<T>(
     })
     .catch((err) => {
       inflight.delete(key);
-      // If we have expired stale data, return it as fallback
-      if (entry) return entry.data;
+      // If we have expired stale data, re-cache briefly to prevent thundering herd
+      if (entry) {
+        store.set(key, { data: entry.data, createdAt: Date.now(), ttl: 30_000, staleGrace: 0 });
+        return entry.data;
+      }
       throw err;
     });
 

@@ -103,6 +103,7 @@ export default function PerspectiveLens() {
     async function fetchTopics() {
       try {
         const res = await fetch("/api/news?category=general&country=in&lang=en&max=5");
+        if (!res.ok) return;
         const data = await res.json();
         const headlines = (data.articles || [])
           .slice(0, 5)
@@ -113,7 +114,7 @@ export default function PerspectiveLens() {
           loadPerspectives(headlines[0]);
         }
       } catch {
-        // silent
+        // topics remain empty — section shows nothing
       } finally {
         setInitialLoad(false);
       }

@@ -215,25 +215,43 @@ function TrendingTicker({ topics }: { topics: TrendingTopic[] }) {
 }
 
 /* ── MAIN COMPONENT ── */
-export default function BreakingScrolls() {
+
+interface BreakingScrollsProps {
+  initialArticles?: Article[];
+  initialTrending?: TrendingTopic[];
+  initialFreshCount?: number;
+  initialSourceCount?: number;
+}
+
+export default function BreakingScrolls({
+  initialArticles,
+  initialTrending,
+  initialFreshCount,
+  initialSourceCount,
+}: BreakingScrollsProps = {}) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
   const [activeCategory, setActiveCategory] = useState("general");
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [trending, setTrending] = useState<TrendingTopic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [freshCount, setFreshCount] = useState(0);
-  const [sourceCount, setSourceCount] = useState(0);
+  const [articles, setArticles] = useState<Article[]>(initialArticles || []);
+  const [trending, setTrending] = useState<TrendingTopic[]>(initialTrending || []);
+  const [loading, setLoading] = useState(!initialArticles);
+  const [freshCount, setFreshCount] = useState(initialFreshCount || 0);
+  const [sourceCount, setSourceCount] = useState(initialSourceCount || 0);
 
   useEffect(() => {
+    // Skip initial fetch if we have server-provided data and category hasn't changed
+    let skipFirst = activeCategory === "general" && !!initialArticles;
+
     async function fetchNews() {
+      if (skipFirst) { skipFirst = false; return; }
       setLoading(true);
       try {
         const res = await fetch(`/api/news?category=${activeCategory}&country=in&lang=en&max=9`);
+        if (!res.ok) return;
         const data = await res.json();
         if (data.articles) setArticles(data.articles);
         if (data.trending) setTrending(data.trending);
-        if (data.freshCount) setFreshCount(data.freshCount);
+        if (data.freshCount != null) setFreshCount(data.freshCount);
         if (data.sources) setSourceCount(data.sources.length);
       } catch {
         // silent
@@ -244,7 +262,7 @@ export default function BreakingScrolls() {
     fetchNews();
     const interval = setInterval(fetchNews, 60000);
     return () => clearInterval(interval);
-  }, [activeCategory]);
+  }, [activeCategory, initialArticles]);
 
   const featured = articles[0];
   const grid = articles.slice(1, 7);

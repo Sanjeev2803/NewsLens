@@ -96,16 +96,19 @@ export default function WhatsHot() {
   const [activeCategory, setActiveCategory] = useState("sports");
   const [items, setItems] = useState<HotItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function fetchHot() {
       setLoading(true);
+      setError(false);
       try {
         const res = await fetch(`/api/news?category=${activeCategory}&country=in&lang=en&max=5`);
+        if (!res.ok) { setError(true); return; }
         const data = await res.json();
         setItems(data.articles || []);
       } catch {
-        // silent
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -196,7 +199,7 @@ export default function WhatsHot() {
           </motion.div>
         ) : (
           <motion.p key="empty" className="text-center py-8 text-mist-gray/30 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            No hot stories right now — check back soon
+            {error ? "Failed to load stories — try again later" : "No hot stories right now — check back soon"}
           </motion.p>
         )}
       </AnimatePresence>

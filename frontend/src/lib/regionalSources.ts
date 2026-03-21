@@ -1,7 +1,12 @@
 /*
   Regional Indian News Sources — mapped by language to state-level feeds
   + Google Trends for real-time trending topics
+  + fetchRegionalFeeds() for fetching and parsing regional RSS
 */
+
+import { xmlParser } from "./newsSources";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ── Regional RSS Feeds by Language ──
 // Each language maps to news sources from the states where that language is spoken
@@ -174,4 +179,82 @@ export function getRegionalGeo(lang: string, country: string): string {
     return LANGUAGE_STATE_MAP[lang].geoCode;
   }
   return getGeoForCountry(country);
+}
+
+// ── Fetch and parse regional Indian RSS feeds ──
+
+export async function fetchRegionalFeeds(lang: string, max: number) {
+  const feeds = REGIONAL_FEEDS[lang];
+  if (!feeds || feeds.length === 0) return { articles: [], sources: [] };
+
+  const results = await Promise.allSettled(
+    feeds.map(async (feed) => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(feed.url, {
+          signal: controller.signal,
+          next: { revalidate: 120 },
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsLens/1.0)" },
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return [];
+
+        const text = await res.text();
+
+        try {
+          const parsed = xmlParser.parse(text);
+          const items = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
+          const arr = Array.isArray(items) ? items : [items];
+
+          return arr.slice(0, 5).map((item: any) => {
+            const image =
+              item["media:thumbnail"]?.["@_url"] ||
+              (Array.isArray(item["media:thumbnail"]) ? item["media:thumbnail"][0]?.["@_url"] : null) ||
+              item["media:content"]?.["@_url"] ||
+              (Array.isArray(item["media:content"]) ? item["media:content"][0]?.["@_url"] : null) ||
+              item.enclosure?.["@_url"] ||
+              item.description?.match?.(/<img[^>]+src=["']([^"']+)["']/)?.[1] ||
+              null;
+
+            const link = typeof item.link === "object" ? item.link["@_href"] || "" : String(item.link || item.guid || "");
+
+            return {
+              title: String(item.title || "").replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, ""),
+              description: String(item.description || item.summary || "")
+                .replace(/<!\[CDATA\[|\]\]>/g, "")
+                .replace(/<[^>]+>/g, "")
+                .replace(/&nbsp;/g, " ")
+                .replace(/&#039;/g, "'")
+                .replace(/&amp;/g, "&")
+                .slice(0, 300),
+              url: link,
+              image,
+              publishedAt: item.pubDate || item.published || item.updated || new Date().toISOString(),
+              source: { name: `${feed.name} (${feed.state})`, url: "" },
+            };
+          });
+        } catch {
+          return [];
+        }
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  const articles: any[] = [];
+  const activeSources: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === "fulfilled" && r.value.length > 0) {
+      articles.push(...r.value);
+      activeSources.push(`${feeds[i].name} (${feeds[i].state})`);
+    }
+  }
+
+  articles.sort((a: any, b: any) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  return { articles: articles.slice(0, max), sources: activeSources };
 }

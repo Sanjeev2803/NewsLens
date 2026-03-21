@@ -206,38 +206,43 @@ export default function NewsPulseMap() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchAllCountries() {
       setLoading(true);
-      const countries = Object.keys(COUNTRY_POSITIONS);
-      const results = await Promise.allSettled(
-        countries.map(async (code) => {
-          const res = await fetch(`/api/news?category=general&country=${code}&lang=en&max=3`);
-          const data = await res.json();
+      try {
+        const res = await fetch("/api/news/batch?category=general&lang=en&max=3", {
+          signal: controller.signal,
+        });
+        if (!res.ok) return; // keep previous hotspots
+        const batch = await res.json();
+        const oneHourAgo = Date.now() - 3600000;
+        const spots: CountryHotspot[] = [];
+        for (const code of Object.keys(COUNTRY_POSITIONS)) {
+          const data = batch[code];
+          if (!data || !data.articles) continue;
           const pos = COUNTRY_POSITIONS[code];
           const meta = COUNTRY_META[code];
-          const oneHourAgo = Date.now() - 3600000;
           const breaking = (data.articles || []).filter(
             (a: { publishedAt: string }) => new Date(a.publishedAt).getTime() > oneHourAgo
           ).length;
-          return {
+          spots.push({
             code, label: meta.label, flag: meta.flag,
             x: pos.x, y: pos.y,
             articles: data.totalArticles || data.articles?.length || 0,
             breaking,
-            topHeadline: data.articles?.[0]?.title || null,
-          };
-        })
-      );
-      const spots: CountryHotspot[] = [];
-      for (const r of results) {
-        if (r.status === "fulfilled") spots.push(r.value);
+            topHeadline: data.articles?.[0]?.title ?? null,
+          });
+        }
+        setHotspots(spots);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
       }
-      setHotspots(spots);
       setLoading(false);
     }
     fetchAllCountries();
     const interval = setInterval(fetchAllCountries, 120000);
-    return () => clearInterval(interval);
+    return () => { controller.abort(); clearInterval(interval); };
   }, []);
 
   const activeHotspot = hotspots.find((h) => h.code === activeCountry);
