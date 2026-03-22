@@ -16,6 +16,8 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 */
 
 const ALL_COUNTRIES = ["in", "us", "gb", "jp", "au", "ca", "de", "fr", "br", "cn", "ru", "za"];
+const ALLOWED_CATEGORIES = ["general", "business", "technology", "science", "health", "sports", "entertainment"];
+const ALLOWED_LANGS = ["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa", "ur", "ja", "de", "fr", "pt", "zh", "ru"];
 
 export async function GET(req: NextRequest) {
   const clientIp = getClientIp(req);
@@ -34,8 +36,10 @@ export async function GET(req: NextRequest) {
     ? countriesParam.split(",").filter((c) => ALL_COUNTRIES.includes(c))
     : ALL_COUNTRIES;
   const max = Math.min(parseInt(searchParams.get("max") || "3", 10) || 3, 10);
-  const category = searchParams.get("category") || "general";
-  const lang = searchParams.get("lang") || "en";
+  const rawCategory = searchParams.get("category") || "general";
+  const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : "general";
+  const rawLang = searchParams.get("lang") || "en";
+  const lang = ALLOWED_LANGS.includes(rawLang) ? rawLang : "en";
 
   try {
     const results = await Promise.allSettled(

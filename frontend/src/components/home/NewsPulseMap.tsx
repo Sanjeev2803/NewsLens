@@ -1,328 +1,704 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { IconMapPin, IconArrowRight, IconCircleFilled } from "@tabler/icons-react";
+import {
+  IconMapPin,
+  IconArrowRight,
+  IconWorld,
+  IconX,
+  IconExternalLink,
+  IconClock,
+} from "@tabler/icons-react";
+import { geoNaturalEarth1, geoPath, type GeoPermissibleObjects } from "d3-geo";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { feature } from "topojson-client";
+import type { Topology, GeometryCollection } from "topojson-specification";
+import type { FeatureCollection, Geometry } from "geojson";
 
-/*
-  News Pulse Map — Snapchat-style heatmap on a real SVG world map.
-  Uses Natural Earth simplified world SVG paths.
-  Countries glow based on live news activity.
-*/
+const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+interface ArticleData {
+  title: string;
+  description: string;
+  url: string;
+  image: string | null;
+  publishedAt: string;
+  source: { name: string; url: string };
+}
 
 interface CountryHotspot {
   code: string;
   label: string;
   flag: string;
-  x: number;
-  y: number;
-  articles: number;
+  articles: ArticleData[];
+  totalArticles: number;
   breaking: number;
-  topHeadline?: string;
+  topImage: string | null;
 }
 
-const COUNTRY_POSITIONS: Record<string, { x: number; y: number }> = {
-  in: { x: 68, y: 52 },
-  us: { x: 22, y: 40 },
-  gb: { x: 47, y: 28 },
-  jp: { x: 86, y: 38 },
-  au: { x: 83, y: 74 },
-  ca: { x: 20, y: 26 },
-  de: { x: 50, y: 30 },
-  fr: { x: 47, y: 34 },
-  br: { x: 32, y: 65 },
-  cn: { x: 77, y: 40 },
-  ru: { x: 65, y: 22 },
-  za: { x: 55, y: 74 },
+const COUNTRY_META: Record<string, { label: string; flag: string; numericId: string }> = {
+  in: { label: "India", flag: "\u{1F1EE}\u{1F1F3}", numericId: "356" },
+  us: { label: "USA", flag: "\u{1F1FA}\u{1F1F8}", numericId: "840" },
+  gb: { label: "UK", flag: "\u{1F1EC}\u{1F1E7}", numericId: "826" },
+  jp: { label: "Japan", flag: "\u{1F1EF}\u{1F1F5}", numericId: "392" },
+  au: { label: "Australia", flag: "\u{1F1E6}\u{1F1FA}", numericId: "036" },
+  ca: { label: "Canada", flag: "\u{1F1E8}\u{1F1E6}", numericId: "124" },
+  de: { label: "Germany", flag: "\u{1F1E9}\u{1F1EA}", numericId: "276" },
+  fr: { label: "France", flag: "\u{1F1EB}\u{1F1F7}", numericId: "250" },
+  br: { label: "Brazil", flag: "\u{1F1E7}\u{1F1F7}", numericId: "076" },
+  cn: { label: "China", flag: "\u{1F1E8}\u{1F1F3}", numericId: "156" },
+  ru: { label: "Russia", flag: "\u{1F1F7}\u{1F1FA}", numericId: "643" },
+  za: { label: "S. Africa", flag: "\u{1F1FF}\u{1F1E6}", numericId: "710" },
 };
 
-const COUNTRY_META: Record<string, { label: string; flag: string }> = {
-  in: { label: "India", flag: "🇮🇳" },
-  us: { label: "USA", flag: "🇺🇸" },
-  gb: { label: "UK", flag: "🇬🇧" },
-  jp: { label: "Japan", flag: "🇯🇵" },
-  au: { label: "Australia", flag: "🇦🇺" },
-  ca: { label: "Canada", flag: "🇨🇦" },
-  de: { label: "Germany", flag: "🇩🇪" },
-  fr: { label: "France", flag: "🇫🇷" },
-  br: { label: "Brazil", flag: "🇧🇷" },
-  cn: { label: "China", flag: "🇨🇳" },
-  ru: { label: "Russia", flag: "🇷🇺" },
-  za: { label: "S. Africa", flag: "🇿🇦" },
+const ACTIVE_NUMERIC_IDS = new Set(Object.values(COUNTRY_META).map((m) => m.numericId));
+
+const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
+  in: [78.9, 22.0],
+  us: [-98.5, 39.8],
+  gb: [-2.0, 54.0],
+  jp: [138.0, 36.5],
+  au: [134.0, -25.5],
+  ca: [-106.0, 56.0],
+  de: [10.5, 51.2],
+  fr: [2.5, 46.6],
+  br: [-51.9, -14.2],
+  cn: [104.0, 35.8],
+  ru: [90.0, 62.0],
+  za: [25.0, -29.0],
 };
 
-/* Simplified continent SVG paths (Natural Earth inspired, hand-optimized for performance) */
-function WorldSVG() {
+const MAP_WIDTH = 960;
+const MAP_HEIGHT = 500;
+
+function timeAgo(dateStr: string) {
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return "recently";
+  const diff = Date.now() - ts;
+  if (diff < 0) return "just now";
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function isSafeUrl(url: string) {
+  return /^https?:\/\//i.test(url);
+}
+
+/* Module-level geo cache to avoid refetching on every mount */
+let geoDataCache: FeatureCollection<Geometry> | null = null;
+let geoDataPromise: Promise<FeatureCollection<Geometry>> | null = null;
+
+function loadGeoData(): Promise<FeatureCollection<Geometry>> {
+  if (geoDataCache) return Promise.resolve(geoDataCache);
+  if (geoDataPromise) return geoDataPromise;
+  geoDataPromise = fetch(WORLD_TOPO_URL)
+    .then((r) => r.json())
+    .then((topo: Topology) => {
+      const countries = feature(
+        topo,
+        topo.objects.countries as GeometryCollection
+      ) as FeatureCollection<Geometry>;
+      geoDataCache = countries;
+      return countries;
+    })
+    .catch((err) => {
+      geoDataPromise = null; // allow retry on failure
+      throw err;
+    });
+  return geoDataPromise;
+}
+
+/* Module-level projection — inputs are constants, no need to compute twice */
+const projection = geoNaturalEarth1().fitSize(
+  [MAP_WIDTH, MAP_HEIGHT],
+  { type: "Sphere" } as GeoPermissibleObjects
+);
+
+/* ── Article Reader Modal ── */
+function ArticleModal({
+  article,
+  countryLabel,
+  countryFlag,
+  onClose,
+}: {
+  article: ArticleData;
+  countryLabel: string;
+  countryFlag: string;
+  onClose: () => void;
+}) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
+    document.addEventListener("keydown", handleEsc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   return (
-    <svg viewBox="0 0 1000 500" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid meet">
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <motion.div
+        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-[#0c0c14] border border-white/[0.08] shadow-2xl"
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+        >
+          <IconX size={16} className="text-white/70" />
+        </button>
+
+        {/* Hero image */}
+        {article.image && (
+          <div className="relative w-full aspect-video overflow-hidden rounded-t-2xl">
+            <img
+              src={article.image}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c14] via-transparent to-transparent" />
+          </div>
+        )}
+
+        <div className="p-6">
+          {/* Source + time */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm">{countryFlag}</span>
+            <span className="text-xs text-white/40">{countryLabel}</span>
+            <span className="text-white/20">|</span>
+            <span className="text-xs text-white/50 font-medium">{article.source.name}</span>
+            <span className="text-white/20">|</span>
+            <span className="flex items-center gap-1 text-xs text-white/30">
+              <IconClock size={11} />
+              {timeAgo(article.publishedAt)}
+            </span>
+          </div>
+
+          {/* Title */}
+          <h2 className="text-xl font-heading font-bold text-white/90 leading-tight mb-4">
+            {article.title}
+          </h2>
+
+          {/* Description / body */}
+          <p className="text-sm text-white/60 leading-relaxed whitespace-pre-line">
+            {article.description || "No description available for this article."}
+          </p>
+
+          {/* Read full article link */}
+          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+            <a
+              href={isSafeUrl(article.url) ? article.url : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-white/70 hover:text-white hover:bg-white/10 transition-all"
+            >
+              Read full article on {article.source.name}
+              <IconExternalLink size={14} />
+            </a>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ── SVG World Map ── */
+function WorldMapSVG({
+  hotspotMap,
+  activeCountry,
+}: {
+  hotspotMap: Map<string, CountryHotspot>;
+  activeCountry: string | null;
+}) {
+  const [geoData, setGeoData] = useState<FeatureCollection<Geometry> | null>(geoDataCache);
+
+  useEffect(() => {
+    if (geoDataCache) { setGeoData(geoDataCache); return; }
+    let cancelled = false;
+    loadGeoData()
+      .then((data) => { if (!cancelled) setGeoData(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const pathGen = useMemo(() => geoPath(projection), []);
+
+  const numericToCode = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [code, meta] of Object.entries(COUNTRY_META)) {
+      m.set(meta.numericId, code);
+    }
+    return m;
+  }, []);
+
+  return (
+    <svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="w-full h-full">
       <defs>
-        <radialGradient id="map-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(255,107,0,0.03)" />
-          <stop offset="100%" stopColor="transparent" />
+        {/* Ocean gradient */}
+        <radialGradient id="ocean-bg" cx="50%" cy="45%" r="60%">
+          <stop offset="0%" stopColor="#0d1b2a" />
+          <stop offset="100%" stopColor="#050a12" />
         </radialGradient>
+        {/* Land fill for non-tracked countries */}
+        <linearGradient id="land-default" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1b2838" />
+          <stop offset="100%" stopColor="#141e2e" />
+        </linearGradient>
+        {/* Tracked country fill — teal tint */}
+        <linearGradient id="land-tracked" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1a3040" />
+          <stop offset="100%" stopColor="#162636" />
+        </linearGradient>
+        {/* Active country glow */}
+        <filter id="country-glow">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      <rect width="1000" height="500" fill="url(#map-glow)" />
 
-      {/* Continents — simplified outlines */}
-      <g fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.8">
-        {/* North America */}
-        <path d="M120,100 C140,80 180,70 200,80 C230,65 260,70 270,90 L280,120 C290,140 260,160 240,180 L220,200 C200,220 180,230 160,220 L140,200 C120,180 100,160 110,140 Z" />
-        {/* Central America */}
-        <path d="M180,220 C190,230 200,240 210,250 L220,270 C215,280 200,285 195,275 L185,255 C175,240 175,230 180,220 Z" />
-        {/* South America */}
-        <path d="M240,280 C260,270 290,280 310,300 L320,340 C330,370 320,400 300,420 L280,430 C260,420 240,400 235,370 L230,340 C225,310 230,290 240,280 Z" />
-        {/* Europe */}
-        <path d="M440,100 C460,90 480,95 500,100 L520,110 C540,120 550,140 540,155 L520,160 C500,165 480,158 460,150 L445,140 C435,130 435,110 440,100 Z" />
-        {/* Africa */}
-        <path d="M460,220 C480,210 510,215 530,230 L545,260 C555,290 550,330 540,360 L520,380 C500,390 480,385 465,370 L450,340 C440,310 440,280 445,250 Z" />
-        {/* Asia */}
-        <path d="M550,80 C580,70 640,75 700,90 L750,100 C790,110 820,130 830,160 L820,190 C800,210 770,220 740,215 L700,210 C660,205 620,190 590,170 L560,150 C540,130 540,100 550,80 Z" />
-        {/* India subcontinent */}
-        <path d="M640,200 C660,190 680,195 690,210 L695,240 C690,270 675,290 660,280 L645,260 C635,240 635,215 640,200 Z" />
-        {/* Southeast Asia */}
-        <path d="M730,220 C750,215 770,225 780,240 L790,260 C785,275 770,280 755,275 L740,260 C730,245 728,230 730,220 Z" />
-        {/* Japan */}
-        <path d="M840,140 C845,130 855,128 860,135 L862,160 C858,175 850,180 845,170 L842,155 Z" />
-        {/* Australia */}
-        <path d="M780,340 C810,330 850,340 860,360 L855,390 C840,405 810,410 790,400 L775,380 C770,365 770,350 780,340 Z" />
-        {/* UK/Ireland */}
-        <path d="M455,110 C458,105 465,103 468,108 L470,118 C467,125 460,127 457,122 Z" />
+      {/* Ocean background */}
+      <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="url(#ocean-bg)" />
+
+      {/* Graticule grid lines */}
+      <g stroke="rgba(255,255,255,0.04)" strokeWidth={0.3} fill="none" strokeDasharray="2,4">
+        {/* Latitude lines */}
+        {[-60, -30, 0, 30, 60].map((lat) => (
+          <path key={`lat-${lat}`} d={pathGen({ type: "LineString", coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, lat]) } as GeoPermissibleObjects) || ""} />
+        ))}
+        {/* Longitude lines */}
+        {[-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150].map((lon) => (
+          <path key={`lon-${lon}`} d={pathGen({ type: "LineString", coordinates: Array.from({ length: 181 }, (_, i) => [lon, i - 90]) } as GeoPermissibleObjects) || ""} />
+        ))}
       </g>
 
-      {/* Continent fill — very subtle */}
-      <g fill="rgba(255,255,255,0.015)" stroke="none">
-        <path d="M120,100 C140,80 180,70 200,80 C230,65 260,70 270,90 L280,120 C290,140 260,160 240,180 L220,200 C200,220 180,230 160,220 L140,200 C120,180 100,160 110,140 Z" />
-        <path d="M240,280 C260,270 290,280 310,300 L320,340 C330,370 320,400 300,420 L280,430 C260,420 240,400 235,370 L230,340 C225,310 230,290 240,280 Z" />
-        <path d="M440,100 C460,90 480,95 500,100 L520,110 C540,120 550,140 540,155 L520,160 C500,165 480,158 460,150 L445,140 C435,130 435,110 440,100 Z" />
-        <path d="M460,220 C480,210 510,215 530,230 L545,260 C555,290 550,330 540,360 L520,380 C500,390 480,385 465,370 L450,340 C440,310 440,280 445,250 Z" />
-        <path d="M550,80 C580,70 640,75 700,90 L750,100 C790,110 820,130 830,160 L820,190 C800,210 770,220 740,215 L700,210 C660,205 620,190 590,170 L560,150 C540,130 540,100 550,80 Z" />
-        <path d="M640,200 C660,190 680,195 690,210 L695,240 C690,270 675,290 660,280 L645,260 C635,240 635,215 640,200 Z" />
-        <path d="M780,340 C810,330 850,340 860,360 L855,390 C840,405 810,410 790,400 L775,380 C770,365 770,350 780,340 Z" />
-      </g>
+      {/* Sphere outline */}
+      <path
+        d={pathGen({ type: "Sphere" } as GeoPermissibleObjects) || ""}
+        fill="none"
+        stroke="rgba(100,180,220,0.08)"
+        strokeWidth={0.8}
+      />
 
-      {/* Grid lines — lat/long */}
-      <g stroke="rgba(255,255,255,0.02)" strokeWidth="0.5" fill="none">
-        <line x1="0" y1="250" x2="1000" y2="250" /> {/* equator */}
-        <line x1="0" y1="125" x2="1000" y2="125" />
-        <line x1="0" y1="375" x2="1000" y2="375" />
-        <line x1="500" y1="0" x2="500" y2="500" /> {/* prime meridian */}
-        <line x1="250" y1="0" x2="250" y2="500" />
-        <line x1="750" y1="0" x2="750" y2="500" />
-      </g>
+      {/* Country shapes */}
+      {geoData?.features.map((feat) => {
+        const code = numericToCode.get(String(feat.id));
+        const isTracked = code && ACTIVE_NUMERIC_IDS.has(String(feat.id));
+        const hotspot = code ? hotspotMap.get(code) : null;
+        const isActive = code === activeCountry;
+        const hasBreaking = hotspot && hotspot.breaking > 0;
+
+        let fill = "url(#land-default)";
+        let stroke = "rgba(255,255,255,0.08)";
+        let strokeW = 0.4;
+
+        if (isTracked && hotspot) {
+          fill = "url(#land-tracked)";
+          stroke = "rgba(100,200,220,0.2)";
+          strokeW = 0.6;
+        }
+        if (isActive) {
+          fill = hasBreaking ? "#2a1520" : "#152a30";
+          stroke = hasBreaking ? "rgba(230,80,80,0.5)" : "rgba(100,220,220,0.4)";
+          strokeW = 1.2;
+        }
+
+        return (
+          <path
+            key={String(feat.id)}
+            d={pathGen(feat as GeoPermissibleObjects) || ""}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeW}
+            filter={isActive ? "url(#country-glow)" : undefined}
+            className={isTracked ? "cursor-pointer" : ""}
+            style={isTracked ? { transition: "fill 0.3s, stroke 0.3s" } : undefined}
+            onClick={code ? () => {
+              /* bubble to parent via custom event */
+            } : undefined}
+          />
+        );
+      })}
+
+      {!geoData && (
+        <text x={MAP_WIDTH / 2} y={MAP_HEIGHT / 2} textAnchor="middle" fill="rgba(100,180,220,0.3)" fontSize={13} fontFamily="sans-serif">
+          Loading map...
+        </text>
+      )}
     </svg>
   );
 }
 
-function PulseHotspot({
+/* ── Thumbnail Hotspot (HTML overlay) ── */
+function ThumbnailHotspot({
   hotspot,
+  x,
+  y,
   isActive,
   onClick,
 }: {
   hotspot: CountryHotspot;
+  x: number;
+  y: number;
   isActive: boolean;
   onClick: () => void;
 }) {
-  const intensity = Math.min(1, hotspot.articles / 10);
+  const hasImage = !!hotspot.topImage;
   const hasBreaking = hotspot.breaking > 0;
-  const baseColor = hasBreaking ? "#E63946" : "#FF6B00";
+  const size = isActive ? 48 : 40;
 
   return (
     <button
       onClick={onClick}
       className="absolute z-10 group"
-      style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%`, transform: "translate(-50%, -50%)" }}
+      style={{
+        left: `${(x / MAP_WIDTH) * 100}%`,
+        top: `${(y / MAP_HEIGHT) * 100}%`,
+        transform: "translate(-50%, -50%)",
+      }}
     >
-      {/* Heatmap glow — Snapchat-style radial gradient */}
-      <motion.div
+      {/* Ambient glow behind thumbnail */}
+      <div
         className="absolute rounded-full pointer-events-none"
         style={{
-          width: 60 + intensity * 40,
-          height: 60 + intensity * 40,
-          marginLeft: -(30 + intensity * 20),
-          marginTop: -(30 + intensity * 20),
-          background: `radial-gradient(circle, ${baseColor}${hasBreaking ? "25" : "18"} 0%, ${baseColor}08 40%, transparent 70%)`,
-          filter: `blur(${4 + intensity * 6}px)`,
+          width: size + 30,
+          height: size + 30,
+          left: -(size + 30) / 2 + size / 2,
+          top: -(size + 30) / 2 + size / 2,
+          background: hasBreaking
+            ? "radial-gradient(circle, rgba(230,60,60,0.25) 0%, transparent 70%)"
+            : isActive
+              ? "radial-gradient(circle, rgba(100,220,220,0.2) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(100,180,220,0.12) 0%, transparent 70%)",
+          filter: "blur(6px)",
         }}
-        animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.5, 0.8] }}
-        transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Pulse rings */}
+      {/* Pulse rings for breaking */}
       {hasBreaking && (
         <>
           <motion.div
-            className="absolute rounded-full border"
-            style={{
-              width: 36, height: 36, marginLeft: -18, marginTop: -18,
-              borderColor: `${baseColor}30`,
-            }}
-            animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
+            className="absolute rounded-full border border-red-400/40"
+            style={{ width: size, height: size, left: 0, top: 0 }}
+            animate={{ scale: [1, 2], opacity: [0.5, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
           <motion.div
-            className="absolute rounded-full border"
-            style={{
-              width: 36, height: 36, marginLeft: -18, marginTop: -18,
-              borderColor: `${baseColor}20`,
-            }}
-            animate={{ scale: [1, 3], opacity: [0.2, 0] }}
+            className="absolute rounded-full border border-red-400/20"
+            style={{ width: size, height: size, left: 0, top: 0 }}
+            animate={{ scale: [1, 2.5], opacity: [0.3, 0] }}
             transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
           />
         </>
       )}
 
-      {/* Core dot */}
-      <motion.div
-        className="relative w-3 h-3 rounded-full cursor-pointer"
-        style={{
-          backgroundColor: baseColor,
-          boxShadow: `0 0 ${10 + intensity * 15}px ${baseColor}90`,
-        }}
-        whileHover={{ scale: 2 }}
-        animate={isActive ? { scale: [1, 1.5, 1] } : {}}
-        transition={isActive ? { duration: 0.6, repeat: Infinity } : {}}
-      />
+      {/* Active selection ring */}
+      {isActive && !hasBreaking && (
+        <motion.div
+          className="absolute rounded-full border border-cyan-400/30"
+          style={{ width: size, height: size, left: 0, top: 0 }}
+          animate={{ scale: [1, 1.6], opacity: [0.4, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+      )}
 
-      {/* Label tooltip */}
-      <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-        <div className="px-2.5 py-1 rounded-lg bg-[#08080d]/95 border border-white/10 backdrop-blur-md shadow-xl">
-          <span className="text-[10px] font-heading text-white font-medium">
-            {hotspot.flag} {hotspot.label}
-          </span>
-          {hotspot.breaking > 0 && (
-            <span className="text-[9px] text-red-400 ml-1.5">{hotspot.breaking} breaking</span>
-          )}
-        </div>
-        <div className="w-2 h-2 bg-[#08080d]/95 border-r border-b border-white/10 rotate-45 mx-auto -mt-1" />
+      {/* Thumbnail circle */}
+      <div
+        className="relative rounded-full overflow-hidden transition-all duration-300"
+        style={{
+          width: size,
+          height: size,
+          border: isActive
+            ? "2.5px solid rgba(100,220,220,0.6)"
+            : hasBreaking
+              ? "2.5px solid rgba(230,80,80,0.6)"
+              : "2px solid rgba(100,180,220,0.25)",
+          boxShadow: isActive
+            ? "0 0 24px rgba(100,220,220,0.3), 0 2px 8px rgba(0,0,0,0.5)"
+            : hasBreaking
+              ? "0 0 20px rgba(230,60,60,0.25), 0 2px 8px rgba(0,0,0,0.5)"
+              : "0 0 12px rgba(100,180,220,0.1), 0 2px 8px rgba(0,0,0,0.5)",
+        }}
+      >
+        {hasImage ? (
+          <img
+            src={hotspot.topImage!}
+            alt={hotspot.label}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              img.style.display = "none";
+              img.parentElement?.classList.add("bg-cyan-950/50");
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-cyan-950/40 flex items-center justify-center text-base">
+            {hotspot.flag}
+          </div>
+        )}
+      </div>
+
+      {/* Country label — always visible on desktop, hover on mobile */}
+      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap hidden sm:block">
+        <span
+          className="text-[9px] font-medium px-1.5 py-0.5 rounded-sm"
+          style={{
+            color: isActive ? "rgba(100,220,220,0.9)" : hasBreaking ? "rgba(230,120,120,0.8)" : "rgba(150,200,220,0.5)",
+            background: "rgba(5,10,18,0.7)",
+          }}
+        >
+          {hotspot.label}
+        </span>
       </div>
     </button>
   );
 }
 
+/* ── Main Component ── */
 export default function NewsPulseMap() {
   const [hotspots, setHotspots] = useState<CountryHotspot[]>([]);
   const [activeCountry, setActiveCountry] = useState<string | null>(null);
+  const [modalArticle, setModalArticle] = useState<{ article: ArticleData; code: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelled = false;
+    let controller: AbortController;
 
     async function fetchAllCountries() {
+      controller = new AbortController();
       setLoading(true);
       try {
         const res = await fetch("/api/news/batch?category=general&lang=en&max=3", {
           signal: controller.signal,
         });
-        if (!res.ok) return; // keep previous hotspots
+        if (!res.ok || cancelled) return;
         const batch = await res.json();
+        if (cancelled) return;
         const oneHourAgo = Date.now() - 3600000;
         const spots: CountryHotspot[] = [];
-        for (const code of Object.keys(COUNTRY_POSITIONS)) {
+
+        for (const code of Object.keys(COUNTRY_META)) {
           const data = batch[code];
           if (!data || !data.articles) continue;
-          const pos = COUNTRY_POSITIONS[code];
           const meta = COUNTRY_META[code];
-          const breaking = (data.articles || []).filter(
-            (a: { publishedAt: string }) => new Date(a.publishedAt).getTime() > oneHourAgo
+          const articles: ArticleData[] = (data.articles || []).map(
+            (a: ArticleData) => ({
+              title: a.title,
+              description: a.description || "",
+              url: a.url,
+              image: a.image || null,
+              publishedAt: a.publishedAt,
+              source: a.source || { name: "Unknown", url: "" },
+            })
+          );
+          const breaking = articles.filter(
+            (a) => new Date(a.publishedAt).getTime() > oneHourAgo
           ).length;
+          const topImage = articles.find((a) => a.image)?.image || null;
+
           spots.push({
-            code, label: meta.label, flag: meta.flag,
-            x: pos.x, y: pos.y,
-            articles: data.totalArticles || data.articles?.length || 0,
+            code,
+            label: meta.label,
+            flag: meta.flag,
+            articles,
+            totalArticles: data.totalArticles || articles.length,
             breaking,
-            topHeadline: data.articles?.[0]?.title ?? null,
+            topImage,
           });
         }
-        setHotspots(spots);
+        if (!cancelled) {
+          setHotspots(spots);
+          setLoading(false);
+        }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     }
     fetchAllCountries();
     const interval = setInterval(fetchAllCountries, 120000);
-    return () => { controller.abort(); clearInterval(interval); };
+    return () => {
+      cancelled = true;
+      controller?.abort();
+      clearInterval(interval);
+    };
   }, []);
 
-  const activeHotspot = hotspots.find((h) => h.code === activeCountry);
+  const hotspotMap = useMemo(() => {
+    const m = new Map<string, CountryHotspot>();
+    for (const h of hotspots) m.set(h.code, h);
+    return m;
+  }, [hotspots]);
+
+  const projectedHotspots = useMemo(() => {
+    return hotspots
+      .map((h) => {
+        const coords = COUNTRY_CENTROIDS[h.code];
+        if (!coords) return null;
+        const p = projection(coords);
+        if (!p) return null;
+        return { hotspot: h, x: p[0], y: p[1] };
+      })
+      .filter(Boolean) as { hotspot: CountryHotspot; x: number; y: number }[];
+  }, [hotspots, projection]);
+
+  const activeHotspot = useMemo(() => hotspots.find((h) => h.code === activeCountry), [hotspots, activeCountry]);
+
+  const handleCountryClick = useCallback(
+    (code: string) => setActiveCountry((prev) => (prev === code ? null : code)),
+    []
+  );
+
+  const handleArticleClick = useCallback((article: ArticleData, code: string) => {
+    setModalArticle({ article, code });
+  }, []);
+
+  const handleCloseModal = useCallback(() => setModalArticle(null), []);
 
   return (
     <section className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12">
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-chakra-orange/10 border border-chakra-orange/20 flex items-center justify-center">
-          <IconMapPin size={16} className="text-chakra-orange" />
+        <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+          <IconMapPin size={16} className="text-white/50" />
         </div>
         <div>
-          <h2 className="text-lg font-heading font-bold text-white">News Pulse Map</h2>
-          <p className="text-[11px] text-mist-gray/40">Live global heatmap — tap hotspots to explore</p>
+          <h2 className="text-lg font-heading font-semibold text-white/90">News Pulse Map</h2>
+          <p className="text-[11px] text-white/30">Live global heatmap — tap thumbnails to explore</p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <motion.div
-            className="w-2 h-2 rounded-full bg-red-500"
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
-          <span className="text-[10px] font-mono text-mist-gray/30">LIVE</span>
+        <div className="ml-auto flex items-center gap-3">
+          <Link
+            href="/globe"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-heading text-white/50 hover:text-white/70 hover:bg-white/[0.06] transition-all"
+          >
+            <IconWorld size={14} /> Globe View
+          </Link>
+          <div className="flex items-center gap-1.5">
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="text-[10px] font-mono text-white/25">LIVE</span>
+          </div>
         </div>
       </div>
 
-      {/* Map */}
-      <div className="relative w-full aspect-[2/1] rounded-2xl border border-white/[0.06] bg-[#04040a] overflow-hidden">
-        <WorldSVG />
+      {/* Map container */}
+      <div
+        ref={containerRef}
+        className="relative w-full aspect-[2/1] rounded-2xl border border-cyan-900/30 bg-[#050a12] overflow-hidden shadow-[0_0_60px_rgba(0,80,120,0.08)]"
+      >
+        {/* SVG map layer */}
+        <WorldMapSVG hotspotMap={hotspotMap} activeCountry={activeCountry} />
 
-        {loading && (
+        {/* Thumbnail hotspots (HTML overlay) */}
+        {projectedHotspots.map(({ hotspot, x, y }) => (
+          <ThumbnailHotspot
+            key={hotspot.code}
+            hotspot={hotspot}
+            x={x}
+            y={y}
+            isActive={activeCountry === hotspot.code}
+            onClick={() => handleCountryClick(hotspot.code)}
+          />
+        ))}
+
+        {loading && hotspots.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center z-20">
-            <motion.div className="text-xs font-heading text-mist-gray/30" animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
+            <motion.div
+              className="text-xs text-white/20"
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
               Scanning global feeds...
             </motion.div>
           </div>
         )}
-
-        {hotspots.map((h) => (
-          <PulseHotspot
-            key={h.code}
-            hotspot={h}
-            isActive={activeCountry === h.code}
-            onClick={() => setActiveCountry(activeCountry === h.code ? null : h.code)}
-          />
-        ))}
       </div>
 
-      {/* Detail panel */}
+      {/* Article cards for active country */}
       <AnimatePresence>
         {activeHotspot && (
           <motion.div
-            className="mt-4 rounded-xl border border-white/[0.06] bg-[#0a0a10]/80 backdrop-blur-sm overflow-hidden"
-            initial={{ opacity: 0, y: -10, height: 0 }}
+            className="mt-4 rounded-xl border border-white/[0.06] bg-[#08080f]/90 backdrop-blur-sm overflow-hidden"
+            initial={{ opacity: 0, y: -8, height: 0 }}
             animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
           >
-            <div className="p-4 md:p-5">
+            <div className="p-4">
+              {/* Country header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{activeHotspot.flag}</span>
-                  <span className="font-heading font-bold text-white">{activeHotspot.label}</span>
-                  <span className="text-xs font-mono text-mist-gray/40">{activeHotspot.articles} stories</span>
-                  {activeHotspot.breaking > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20">
-                      <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>
-                        <IconCircleFilled size={6} className="text-red-400" />
-                      </motion.div>
-                      <span className="text-[10px] font-heading text-red-400">{activeHotspot.breaking} breaking</span>
-                    </span>
-                  )}
+                  <span className="text-lg">{activeHotspot.flag}</span>
+                  <span className="font-heading font-semibold text-white/80">{activeHotspot.label}</span>
+                  <span className="text-xs text-white/30">{activeHotspot.totalArticles} stories</span>
                 </div>
                 <Link
                   href="/trending"
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-chakra-orange/10 border border-chakra-orange/20 text-xs font-heading text-chakra-orange hover:bg-chakra-orange/20 transition-all"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-white/50 hover:text-white/70 transition-all"
                 >
-                  Explore <IconArrowRight size={12} />
+                  See all <IconArrowRight size={12} />
                 </Link>
               </div>
-              {activeHotspot.topHeadline && (
-                <p className="text-sm text-mist-gray/60 line-clamp-2">{activeHotspot.topHeadline}</p>
-              )}
+
+              {/* Article cards — click to read */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {activeHotspot.articles.slice(0, 3).map((article, i) => (
+                  <button
+                    key={article.url || i}
+                    onClick={() => handleArticleClick(article, activeHotspot.code)}
+                    className="text-left rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] transition-all overflow-hidden group"
+                  >
+                    {/* Article thumbnail */}
+                    {article.image && (
+                      <div className="w-full aspect-[16/9] overflow-hidden">
+                        <img
+                          src={article.image}
+                          alt=""
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => { (e.target as HTMLImageElement).parentElement?.style.setProperty("display", "none"); }}
+                        />
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <p className="text-xs font-medium text-white/70 line-clamp-2 leading-relaxed group-hover:text-white/90 transition-colors">
+                        {article.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] text-white/30">{article.source.name}</span>
+                        <span className="text-[10px] text-white/20">{timeAgo(article.publishedAt)}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
@@ -331,15 +707,27 @@ export default function NewsPulseMap() {
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 px-1">
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(230,57,70,0.5)]" />
-          <span className="text-[10px] text-mist-gray/30">Breaking</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-red-400/60" />
+          <span className="text-[10px] text-white/20">Breaking</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-chakra-orange shadow-[0_0_6px_rgba(255,107,0,0.4)]" />
-          <span className="text-[10px] text-mist-gray/30">Active</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
+          <span className="text-[10px] text-white/20">Active</span>
         </div>
-        <span className="text-[10px] text-mist-gray/20 ml-auto">Refreshes every 2 min</span>
+        <span className="text-[10px] text-white/15 ml-auto">Refreshes every 2 min</span>
       </div>
+
+      {/* Article Reader Modal */}
+      <AnimatePresence>
+        {modalArticle && (
+          <ArticleModal
+            article={modalArticle.article}
+            countryLabel={COUNTRY_META[modalArticle.code]?.label || ""}
+            countryFlag={COUNTRY_META[modalArticle.code]?.flag || ""}
+            onClose={handleCloseModal}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }
