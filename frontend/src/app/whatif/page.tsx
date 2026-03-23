@@ -1,21 +1,58 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import WhatIfHero from "@/components/whatif/WhatIfHero";
+import WhatIfFilters from "@/components/whatif/WhatIfFilters";
+import WhatIfFeed from "@/components/whatif/WhatIfFeed";
+import type { Scenario } from "@/lib/whatif/types";
 
 export default function WhatIfPage() {
+  const [category, setCategory] = useState("all");
+  const [sort, setSort] = useState("trending");
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/whatif?category=all&sort=trending&page=1&limit=20")
+      .then((r) => r.json())
+      .then((data) => {
+        setScenarios(data.scenarios || []);
+        setTotal(data.total || 0);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const totalVotes = scenarios.reduce((sum, s) => sum + (s.vote_count || 0), 0);
+  const hotScenario = scenarios.length > 0 ? scenarios[0] : null;
+
   return (
     <>
       <Navbar />
-      <main id="main-content" className="min-h-screen pt-20 px-6">
-        <div className="max-w-6xl mx-auto py-16 text-center">
-          <h1 className="font-brand text-4xl md:text-6xl" style={{ color: "#7B2FBE" }}>
-            What-If Dimension
-          </h1>
-          <p className="mt-4 text-mist-gray font-heading text-lg">
-            Dimensional rift opening... Coming in Phase 8.
-          </p>
-          <div className="mt-12 flex justify-center">
-            <div className="w-16 h-16 rounded-lg border-2 border-amaterasu-purple/30 bg-amaterasu-purple/5 animate-float" />
-          </div>
+      <main id="main-content" className="min-h-screen pt-20 px-4 md:px-6">
+        <div className="max-w-7xl mx-auto py-6">
+          <WhatIfHero
+            totalScenarios={total}
+            totalVotes={totalVotes}
+            hotScenario={hotScenario}
+          />
+          <WhatIfFilters
+            category={category}
+            sort={sort}
+            onCategoryChange={setCategory}
+            onSortChange={setSort}
+          />
+          {loaded && (
+            <WhatIfFeed
+              initialScenarios={scenarios}
+              initialTotal={total}
+              category={category}
+              sort={sort}
+            />
+          )}
         </div>
       </main>
       <Footer />

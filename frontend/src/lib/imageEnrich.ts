@@ -103,7 +103,7 @@ async function scrapeArticleImage(url: string): Promise<string | null> {
 }
 
 // ── Bing Image Search fallback ──
-async function searchImageForHeadline(query: string): Promise<string | null> {
+export async function searchImageForHeadline(query: string): Promise<string | null> {
   try {
     const searchQuery = encodeURIComponent(query.slice(0, 100) + " news");
     const controller = new AbortController();

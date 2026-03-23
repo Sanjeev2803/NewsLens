@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { cachedFetch } from "@/lib/cache";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -21,7 +21,7 @@ const ALLOWED_LANGS = ["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa
 
 export async function GET(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateCheck = checkRateLimit(clientIp);
+  const rateCheck = await checkRateLimitAsync(clientIp);
   if (!rateCheck.allowed) {
     const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
     return NextResponse.json(

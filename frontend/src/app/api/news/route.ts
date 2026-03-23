@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { LANGUAGE_STATE_MAP, fetchGoogleTrends, getRegionalGeo, fetchRegionalFeeds } from "@/lib/regionalSources";
-import { cachedFetch, getCacheStats, updateCacheEntry } from "@/lib/cache";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { cachedFetch, getCacheStats, setCacheEntry } from "@/lib/cache";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { enrichArticleImages } from "@/lib/imageEnrich";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Track which cache keys have been enriched to avoid duplicate background work
+// Capped at 100 entries to prevent unbounded growth in long-lived instances
+const MAX_ENRICHED_KEYS = 100;
 const enrichedKeys = new Set<string>();
 
 const COUNTRIES_MAP: Record<string, string> = {
@@ -15,12 +18,15 @@ const COUNTRIES_MAP: Record<string, string> = {
   au: "australia", ca: "canada", de: "germany", fr: "france",
   br: "brazil", cn: "china", ru: "russia", za: "south africa",
 };
+const ALLOWED_COUNTRIES = Object.keys(COUNTRIES_MAP);
+const ALLOWED_CATEGORIES = ["general", "business", "technology", "science", "health", "sports", "entertainment", "nation"];
+const ALLOWED_LANGS = ["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa", "ur", "ja", "de", "fr", "pt", "zh", "ru"];
 
 // GET /api/news?category=general&country=in&lang=en&max=10
 export async function GET(req: NextRequest) {
   // ── Rate limiting ──
   const clientIp = getClientIp(req);
-  const rateCheck = checkRateLimit(clientIp);
+  const rateCheck = await checkRateLimitAsync(clientIp);
   if (!rateCheck.allowed) {
     const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
     return NextResponse.json(
@@ -33,9 +39,12 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl;
-  const category = searchParams.get("category") || "general";
-  const country = searchParams.get("country") || "in";
-  const lang = searchParams.get("lang") || "en";
+  const rawCategory = searchParams.get("category") || "general";
+  const rawCountry = searchParams.get("country") || "in";
+  const rawLang = searchParams.get("lang") || "en";
+  const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : "general";
+  const country = ALLOWED_COUNTRIES.includes(rawCountry) ? rawCountry : "in";
+  const lang = ALLOWED_LANGS.includes(rawLang) ? rawLang : "en";
   const max = Math.min(parseInt(searchParams.get("max") || "10", 10) || 10, 50);
 
   // Cache diagnostics — dev only
@@ -131,20 +140,30 @@ export async function GET(req: NextRequest) {
       { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
     );
 
-    // ── Background image enrichment — don't block the response ──
+    // ── Background image enrichment (runs after response is sent) ──
+    // The cron pre-fetcher handles enrichment for popular combos.
+    // For cold misses, enrich via after() so Vercel keeps the function alive.
     if (!enrichedKeys.has(cacheKey)) {
+      // Evict oldest key if at capacity
+      if (enrichedKeys.size >= MAX_ENRICHED_KEYS) {
+        const oldest = enrichedKeys.values().next().value;
+        if (oldest) enrichedKeys.delete(oldest);
+      }
       enrichedKeys.add(cacheKey);
-      // Fire and forget — enriches images and updates cache in-place
-      enrichArticleImages([...result.articles]).then((enriched) => {
-        updateCacheEntry(cacheKey, (cached: any) => ({
-          ...cached,
-          articles: enriched,
-        }));
-      }).catch(() => {
-        // Enrichment failed — articles still work without enriched images
+
+      // Deep-clone articles to avoid mutating shared cached objects
+      const articlesSnapshot = result.articles.map((a: any) => ({ ...a }));
+      after(async () => {
+        try {
+          const enriched = await enrichArticleImages(articlesSnapshot);
+          const enrichedPayload = { ...result, articles: enriched };
+          await setCacheEntry(cacheKey, enrichedPayload, { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 });
+        } catch (err) {
+          console.warn("[enrich] background enrichment failed:", err);
+        } finally {
+          setTimeout(() => enrichedKeys.delete(cacheKey), 3 * 60 * 1000);
+        }
       });
-      // Clean up tracking after cache TTL to allow re-enrichment on next cycle
-      setTimeout(() => enrichedKeys.delete(cacheKey), 3 * 60 * 1000);
     }
 
     return NextResponse.json(
@@ -154,7 +173,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("News fetch error:", err);
     return NextResponse.json(
-      { error: "Failed to fetch news", details: String(err), articles: [], sources: [], trending: [] },
+      { error: "Failed to fetch news", articles: [], sources: [], trending: [] },
       { status: 500 }
     );
   }

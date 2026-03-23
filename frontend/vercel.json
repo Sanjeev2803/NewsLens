@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/warm-cache",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-whatifs",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

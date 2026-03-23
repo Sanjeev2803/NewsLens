@@ -1,13 +1,17 @@
 /*
-  In-memory rate limiter — fixed-window counters, per-IP + global.
+  Dual-mode rate limiter: Redis (Upstash) when available, in-memory fallback.
 
   - Per-IP: 30 requests per 60s (prod), 200 in dev
   - Global: 200 requests per 60s (prod), 1000 in dev
-  - O(1) per request — no arrays, no shifting
-  - Auto-cleans stale IPs every 30s
+  - Redis mode: shared across all serverless instances (sliding window via Upstash)
+  - Memory mode: per-process fixed window (dev/single instance)
+  - Auto-cleans stale IPs every 30s in memory mode
 */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit";
 
 // ── Config ──
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -15,7 +19,45 @@ const PER_IP_LIMIT = IS_DEV ? 200 : 30;
 const GLOBAL_LIMIT = IS_DEV ? 1000 : 200;
 const WINDOW_MS = 60_000;
 
-// ── State ──
+// ── Redis rate limiter (lazy init) ──
+
+let ipRatelimit: Ratelimit | null = null;
+let globalRatelimit: Ratelimit | null = null;
+let redisChecked = false;
+
+function getRedisRatelimits(): { ip: Ratelimit; global: Ratelimit } | null {
+  if (redisChecked) {
+    return ipRatelimit && globalRatelimit ? { ip: ipRatelimit, global: globalRatelimit } : null;
+  }
+  redisChecked = true;
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  try {
+    const redis = new Redis({ url, token });
+
+    ipRatelimit = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(PER_IP_LIMIT, "60 s"),
+      prefix: "rl:ip",
+    });
+
+    globalRatelimit = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(GLOBAL_LIMIT, "60 s"),
+      prefix: "rl:global",
+    });
+
+    return { ip: ipRatelimit, global: globalRatelimit };
+  } catch {
+    return null;
+  }
+}
+
+// ── In-memory fallback ──
+
 interface WindowCounter {
   count: number;
   windowStart: number;
@@ -32,7 +74,6 @@ function getCounter(counter: WindowCounter, now: number): WindowCounter {
   return counter;
 }
 
-// ── Cleanup — evict stale IPs every 30s ──
 const CLEANUP_KEY = "__newslens_ratelimit_cleanup";
 if (!(globalThis as any)[CLEANUP_KEY]) {
   (globalThis as any)[CLEANUP_KEY] = setInterval(() => {
@@ -45,6 +86,8 @@ if (!(globalThis as any)[CLEANUP_KEY]) {
   }, 30_000);
 }
 
+// ── Public API ──
+
 export interface RateLimitResult {
   allowed: boolean;
   retryAfterMs: number;
@@ -53,13 +96,53 @@ export interface RateLimitResult {
   globalCount: number;
 }
 
+export async function checkRateLimitAsync(ip: string): Promise<RateLimitResult> {
+  const rl = getRedisRatelimits();
+  if (rl) {
+    // Redis mode — check global first, only consume IP budget if global passes
+    const globalResult = await rl.global.limit("global");
+
+    if (!globalResult.success) {
+      return {
+        allowed: false,
+        retryAfterMs: Math.max((globalResult.reset - Date.now()), 1000),
+        limitType: "global",
+        ipCount: 0,
+        globalCount: globalResult.remaining,
+      };
+    }
+
+    const ipResult = await rl.ip.limit(ip);
+
+    if (!ipResult.success) {
+      return {
+        allowed: false,
+        retryAfterMs: Math.max((ipResult.reset - Date.now()), 1000),
+        limitType: "ip",
+        ipCount: ipResult.remaining,
+        globalCount: globalResult.remaining,
+      };
+    }
+
+    return {
+      allowed: true,
+      retryAfterMs: 0,
+      limitType: null,
+      ipCount: PER_IP_LIMIT - ipResult.remaining,
+      globalCount: GLOBAL_LIMIT - globalResult.remaining,
+    };
+  }
+
+  // Fallback to in-memory
+  return checkRateLimit(ip);
+}
+
+/** Synchronous in-memory rate limiter (always available) */
 export function checkRateLimit(ip: string): RateLimitResult {
   const now = Date.now();
 
-  // ── Reset global window if expired ──
   globalCounter = getCounter(globalCounter, now);
 
-  // ── Get or create IP counter ──
   let ipCounter = ipCounters.get(ip);
   if (!ipCounter) {
     ipCounter = { count: 0, windowStart: now };
@@ -67,7 +150,6 @@ export function checkRateLimit(ip: string): RateLimitResult {
   }
   ipCounter = getCounter(ipCounter, now);
 
-  // ── Check global limit ──
   if (globalCounter.count >= GLOBAL_LIMIT) {
     const retryAfterMs = (globalCounter.windowStart + WINDOW_MS) - now;
     return {
@@ -79,7 +161,6 @@ export function checkRateLimit(ip: string): RateLimitResult {
     };
   }
 
-  // ── Check per-IP limit ──
   if (ipCounter.count >= PER_IP_LIMIT) {
     const retryAfterMs = (ipCounter.windowStart + WINDOW_MS) - now;
     return {
@@ -91,7 +172,6 @@ export function checkRateLimit(ip: string): RateLimitResult {
     };
   }
 
-  // ── Allowed ──
   ipCounter.count++;
   globalCounter.count++;
 
@@ -105,11 +185,18 @@ export function checkRateLimit(ip: string): RateLimitResult {
 }
 
 export function getClientIp(req: { headers: Headers }): string {
+  // x-real-ip is set by Vercel/reverse proxies and can't be spoofed by clients
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
+
+  // x-forwarded-for can be spoofed — take the last entry (closest proxy)
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const parts = forwarded.split(",").map((s) => s.trim());
+    return parts[parts.length - 1] || "unknown";
   }
-  return req.headers.get("x-real-ip") || "unknown";
+
+  return "unknown";
 }
 
 export function getRateLimitStats() {
@@ -119,5 +206,6 @@ export function getRateLimitStats() {
     perIpLimit: PER_IP_LIMIT,
     globalLimit: GLOBAL_LIMIT,
     windowMs: WINDOW_MS,
+    redisEnabled: !!getRedisRatelimits(),
   };
 }
