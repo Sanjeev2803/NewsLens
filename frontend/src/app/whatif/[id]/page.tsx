@@ -115,6 +115,26 @@ function ArticleBody({ body }: { body: string }) {
         const trimmed = line.trim();
         if (!trimmed) return null;
 
+        // <!-- IMG: prompt --> — inline AI-generated illustration
+        const imgMatch = trimmed.match(/^<!--\s*IMG:\s*(.+?)\s*-->$/);
+        if (imgMatch) {
+          const prompt = imgMatch[1];
+          const seed = Math.abs(prompt.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
+          const src = `/api/whatif-image?prompt=${encodeURIComponent(prompt)}&seed=${seed}&w=768&h=432`;
+          return (
+            <div key={i} className="my-6 rounded-xl overflow-hidden border border-white/[0.06]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt=""
+                className="w-full h-auto"
+                loading="lazy"
+                style={{ aspectRatio: "16/9", objectFit: "cover" }}
+              />
+            </div>
+          );
+        }
+
         // ## Heading — with section illustration
         if (trimmed.startsWith("## ")) {
           const headingText = trimmed.slice(3);

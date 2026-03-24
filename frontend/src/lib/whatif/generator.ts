@@ -163,11 +163,15 @@ const CONTENT_TYPES = ["hot_take", "deep_dive", "versus", "prediction", "timelin
 function generateHotTake(title: string, trend: string, category: string, related: string, crossover: string): string {
   return `## Alright, Let's Get Into It
 
+<!-- IMG: colorful cartoon illustration of ${trend}, ${category} theme, dramatic moment, vibrant Amul topical ad style, bold outlines -->
+
 So **${trend}** is everywhere right now. Your timeline. Your group chats. That one colleague who suddenly has a PhD in ${category}. But here's what 90% of people are missing while they're busy having opinions.
 
 **${title}** — sounds dramatic? Maybe. But the last time something like this happened, the outcome was wilder than anyone predicted.
 
 ## The ${crossover} Parallel (Stay With Me Here)
+
+<!-- IMG: cartoon mashup of ${trend} and ${crossover}, funny illustration, two worlds colliding, colorful editorial cartoon style -->
 
 Remember in **${crossover}** when everyone thought they knew how it would end? And then the twist hit and nobody saw it coming?
 
@@ -203,6 +207,8 @@ Look, I know. The family group chat is usually where nuance goes to die. But bro
 function generateDeepDive(title: string, trend: string, _category: string, related: string, crossover: string): string {
   return `## The Full Picture (Not the Headline Version)
 
+<!-- IMG: cartoon detective investigating ${trend}, magnifying glass, evidence board with strings connecting clues, colorful illustration -->
+
 Let's do something radical about **${trend}** — let's actually think about it for more than 30 seconds. Wild concept in 2026, I know.
 
 **${title}** isn't clickbait. It's a scenario that has a disturbingly non-zero probability. And when you lay out the evidence, "disturbingly non-zero" starts feeling like "probably happening."
@@ -221,6 +227,8 @@ Follow the capital. When ${related} started moving, the big players weren't surp
 Notice who's NOT talking about ${trend}. The people who usually have the loudest opinions are suspiciously quiet. In politics, that's called "having inside information." In markets, it's called "positioning."
 
 ## Scenario Modeling
+
+<!-- IMG: cartoon fork in the road, three colorful paths diverging, ${trend} theme, signposts with question marks, whimsical illustration -->
 
 ### Path A: The Controlled Landing (35% probability)
 ${trend} peaks, plateaus, resolves. Headlines move on. Everyone forgets. This is the boring outcome and the one most people are pricing in.
@@ -247,6 +255,8 @@ Something nobody expects changes the game entirely. Low probability, but the imp
 
 function generateVersus(title: string, trend: string, category: string, related: string, crossover: string): string {
   return `## ⚔️ THE GREAT DEBATE
+
+<!-- IMG: cartoon two groups debating about ${trend}, one side with fire emoji energy, other side cool and calm, versus battle illustration, vibrant colors -->
 
 Two sides. One ${trend}. Zero consensus. Let's settle this like adults (who are also slightly competitive about being right).
 
@@ -284,6 +294,8 @@ They're saying you're all overreacting. And honestly? Their evidence isn't terri
 
 ## The Uncomfortable Middle Ground
 
+<!-- IMG: cartoon handshake between fire and ice characters, ${trend} fusion, compromise illustration, warm and cool colors meeting, editorial style -->
+
 What if both sides are right? ${trend} changes some things dramatically and leaves others completely untouched. Not as satisfying as picking a side, but probably the most accurate prediction.
 
 The **${crossover}** lesson: the twist isn't that one side wins. It's that the battle itself changes both sides permanently.
@@ -293,6 +305,8 @@ The **${crossover}** lesson: the twist isn't that one side wins. It's that the b
 
 function generatePrediction(title: string, trend: string, _category: string, related: string, crossover: string): string {
   return `## 🎯 PREDICTION MARKET: OPEN
+
+<!-- IMG: cartoon crystal ball showing ${trend}, fortune teller with colorful predictions swirling around, vibrant editorial illustration -->
 
 **${title}**
 
@@ -328,6 +342,8 @@ So: given what you know RIGHT NOW about ${trend}, ${related}, and the general vi
 function generateTimeline(title: string, trend: string, _category: string, related: string, crossover: string): string {
   return `## ⏰ THE TIMELINE: How ${trend} Plays Out
 
+<!-- IMG: cartoon timeline with ${trend}, milestones marked with colorful flags and icons, path from present to future, whimsical illustration -->
+
 Every big moment follows a pattern. Here's the ${trend} timeline mapped against every similar situation in the last decade — with a ${crossover} twist.
 
 ## Week 1: The Spark 🔥
@@ -345,6 +361,9 @@ The initial takes are in. Now comes the part most people miss: the quiet reposit
 **Historical pattern:** In 78% of similar situations, the biggest move happened in week 2, not week 1. The headline is the appetizer. The response is the meal.
 
 ## Month 1-2: The Reveal 🎭
+
+<!-- IMG: cartoon dramatic reveal moment, curtain being pulled back on ${trend}, surprised audience, ${crossover} style dramatic scene, colorful illustration -->
+
 *The ${crossover} moment.*
 
 This is where it gets interesting. The true impact of ${trend} becomes undeniable. The people who moved early look prescient. The people who waited look... late.
