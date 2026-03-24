@@ -98,20 +98,26 @@ function isSafeUrl(raw: string): boolean {
     const u = new URL(raw);
     if (u.protocol !== "http:" && u.protocol !== "https:") return false;
     const host = u.hostname.toLowerCase();
-    // Block private/reserved IPs and metadata endpoints
+    // Block private/reserved IPv4, IPv6, metadata endpoints, and bypass tricks
     if (
       host === "localhost" ||
       host.startsWith("127.") ||
       host.startsWith("10.") ||
       host.startsWith("192.168.") ||
-      host.startsWith("172.16.") || host.startsWith("172.17.") || host.startsWith("172.18.") ||
-      host.startsWith("172.19.") || host.startsWith("172.2") || host.startsWith("172.30.") ||
-      host.startsWith("172.31.") ||
-      host === "169.254.169.254" ||                // AWS/GCP metadata
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) || // 172.16.0.0 - 172.31.255.255
+      host.startsWith("169.254.") ||                  // Link-local + AWS/GCP metadata
       host.endsWith(".internal") ||
       host === "metadata.google.internal" ||
+      host === "0.0.0.0" ||
+      // IPv6 private/loopback
       host === "[::1]" ||
-      host === "0.0.0.0"
+      host.startsWith("[fc") || host.startsWith("[fd") || // Unique local
+      host.startsWith("[fe80") ||                          // Link-local
+      host.startsWith("[::ffff:127") ||                    // IPv4-mapped loopback
+      // Bypass tricks: hex IPs, decimal IPs, zero-prefix
+      /^0x/i.test(host) ||                                // Hex IP (0x7f000001)
+      /^\d{8,}$/.test(host) ||                            // Decimal IP (2130706433)
+      /^0+\d/.test(host)                                  // Zero-prefix octal
     ) return false;
     return true;
   } catch {
@@ -252,14 +258,19 @@ export async function GET(req: NextRequest) {
           continue;
         }
 
-        // Insert outcomes
+        // Insert outcomes — delete scenario if this fails to avoid broken state
         const outcomeRows = outcomes.map((o) => ({
           scenario_id: inserted.id,
           label: o.label,
           description: o.description || null,
         }));
 
-        await supabase.from("outcomes").insert(outcomeRows);
+        const { error: outcomeErr } = await supabase.from("outcomes").insert(outcomeRows);
+        if (outcomeErr) {
+          console.error("[whatif-cron] Outcome insert failed, removing scenario:", outcomeErr);
+          await supabase.from("scenarios").delete().eq("id", inserted.id);
+          continue;
+        }
         generated++;
       }
 

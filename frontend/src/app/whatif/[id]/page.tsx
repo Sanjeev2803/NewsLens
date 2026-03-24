@@ -13,7 +13,6 @@ import {
   IconEye,
   IconShare2,
   IconBookmark,
-  IconGitFork,
 } from "@tabler/icons-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -392,7 +391,7 @@ export default function ScenarioDetailPage() {
                 </button>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
+                    try { navigator.clipboard.writeText(window.location.href); } catch { /* fallback: noop */ }
                     setShareToast(true);
                     setTimeout(() => setShareToast(false), 2000);
                   }}

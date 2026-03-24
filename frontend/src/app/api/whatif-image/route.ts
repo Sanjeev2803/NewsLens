@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /*
   AI cartoon image proxy — dual provider with fallback.
-  1. Tries Pollinations (flux) first — fast, reliable
-  2. Falls back to Gemini 2.5 Flash Image — higher quality
-  API keys stay server-side. Caches aggressively.
+  Rate limited, size-capped, API keys server-side.
 */
 
 async function tryPollinations(prompt: string, seed: string, width: number, height: number): Promise<Response | null> {
@@ -14,8 +13,8 @@ async function tryPollinations(prompt: string, seed: string, width: number, heig
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
-    const url = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&model=flux&key=${apiKey}&nologo=true&safe=true`;
-    const res = await fetch(url, { signal: controller.signal });
+    const url = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&model=flux&nologo=true&safe=true`;
+    const res = await fetch(url, { signal: controller.signal, headers: { "Authorization": `Bearer ${apiKey}` } });
     clearTimeout(timeout);
 
     if (!res.ok) return null;
@@ -74,13 +73,21 @@ async function tryGemini(prompt: string): Promise<Response | null> {
 }
 
 export async function GET(req: NextRequest) {
+  // Rate limit — prevent API credit burn
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return new Response("Rate limited", { status: 429 });
+  }
+
   const prompt = req.nextUrl.searchParams.get("prompt");
   const seed = req.nextUrl.searchParams.get("seed") || "0";
-  const w = parseInt(req.nextUrl.searchParams.get("w") || "800", 10);
-  const h = parseInt(req.nextUrl.searchParams.get("h") || "500", 10);
+  // Cap dimensions to prevent memory bombs
+  const w = Math.min(1200, Math.max(100, parseInt(req.nextUrl.searchParams.get("w") || "800", 10) || 800));
+  const h = Math.min(800, Math.max(100, parseInt(req.nextUrl.searchParams.get("h") || "500", 10) || 500));
 
-  if (!prompt) {
-    return new Response("Missing prompt", { status: 400 });
+  if (!prompt || prompt.length > 500) {
+    return new Response("Invalid prompt", { status: 400 });
   }
 
   // Try Pollinations first (faster), then Gemini (higher quality)
