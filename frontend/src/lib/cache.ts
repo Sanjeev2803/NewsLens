@@ -11,35 +11,12 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Redis } from "@upstash/redis";
+import { getSharedRedis } from "./redis";
 
-// ── Redis client (lazy singleton) ──
+// ── Redis client (shared singleton from redis.ts) ──
 
-let redis: Redis | null = null;
-let redisAvailable = true;
-
-function getRedis(): Redis | null {
-  if (!redisAvailable) return null;
-  if (redis) return redis;
-
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    redisAvailable = false;
-    console.log("[cache] No Upstash credentials — using in-memory cache");
-    return null;
-  }
-
-  try {
-    redis = new Redis({ url, token });
-    console.log("[cache] Redis connected (Upstash)");
-    return redis;
-  } catch (err) {
-    console.warn("[cache] Redis init failed, falling back to in-memory:", err);
-    redisAvailable = false;
-    return null;
-  }
+function getRedis() {
+  return getSharedRedis();
 }
 
 // ── In-memory store (fallback) ──

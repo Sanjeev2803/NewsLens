@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { timeAgo } from "@/lib/utils";
 import {
   IconSparkles,
   IconTrendingUp,
@@ -117,14 +118,6 @@ function CoverArt({ category, title, imageUrl }: { category: string; title: stri
   );
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function WhatIfCard({ scenario, index, featured = false }: { scenario: Scenario; index: number; featured?: boolean }) {
   const contentLabel = CONTENT_TYPE_LABELS[scenario.content_type] || CONTENT_TYPE_LABELS.article;

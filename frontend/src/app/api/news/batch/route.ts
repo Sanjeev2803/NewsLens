@@ -20,21 +20,24 @@ const ALLOWED_CATEGORIES = ["general", "business", "technology", "science", "hea
 const ALLOWED_LANGS = ["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa", "ur", "ja", "de", "fr", "pt", "zh", "ru"];
 
 export async function GET(req: NextRequest) {
-  const clientIp = getClientIp(req);
-  const rateCheck = await checkRateLimitAsync(clientIp);
-  if (!rateCheck.allowed) {
-    const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
-    return NextResponse.json(
-      { error: "Too many requests", retryAfter: retryAfterSec },
-      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
-    );
-  }
-
   const { searchParams } = req.nextUrl;
   const countriesParam = searchParams.get("countries");
   const countries = countriesParam
     ? countriesParam.split(",").filter((c) => ALL_COUNTRIES.includes(c))
     : ALL_COUNTRIES;
+
+  // Rate limit: count as N tokens (one per country) to prevent amplification
+  const clientIp = getClientIp(req);
+  for (let i = 0; i < countries.length; i++) {
+    const rateCheck = await checkRateLimitAsync(clientIp);
+    if (!rateCheck.allowed) {
+      const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
+      return NextResponse.json(
+        { error: "Too many requests", retryAfter: retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+      );
+    }
+  }
   const max = Math.min(parseInt(searchParams.get("max") || "3", 10) || 3, 10);
   const rawCategory = searchParams.get("category") || "general";
   const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : "general";

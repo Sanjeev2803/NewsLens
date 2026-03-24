@@ -10,8 +10,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
+import { getSharedRedis } from "./redis";
 
 // ── Config ──
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -19,25 +19,18 @@ const PER_IP_LIMIT = IS_DEV ? 200 : 30;
 const GLOBAL_LIMIT = IS_DEV ? 1000 : 200;
 const WINDOW_MS = 60_000;
 
-// ── Redis rate limiter (lazy init) ──
+// ── Redis rate limiter (lazy init, uses shared Redis client) ──
 
 let ipRatelimit: Ratelimit | null = null;
 let globalRatelimit: Ratelimit | null = null;
-let redisChecked = false;
 
 function getRedisRatelimits(): { ip: Ratelimit; global: Ratelimit } | null {
-  if (redisChecked) {
-    return ipRatelimit && globalRatelimit ? { ip: ipRatelimit, global: globalRatelimit } : null;
-  }
-  redisChecked = true;
+  if (ipRatelimit && globalRatelimit) return { ip: ipRatelimit, global: globalRatelimit };
 
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  const redis = getSharedRedis();
+  if (!redis) return null;
 
   try {
-    const redis = new Redis({ url, token });
-
     ipRatelimit = new Ratelimit({
       redis,
       limiter: Ratelimit.slidingWindow(PER_IP_LIMIT, "60 s"),

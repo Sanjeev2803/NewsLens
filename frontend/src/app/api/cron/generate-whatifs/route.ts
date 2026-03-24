@@ -63,8 +63,36 @@ async function fetchWikipediaImage(query: string): Promise<string | null> {
   }
 }
 
+// SSRF protection — only allow HTTP(S) to public domains
+function isSafeUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase();
+    // Block private/reserved IPs and metadata endpoints
+    if (
+      host === "localhost" ||
+      host.startsWith("127.") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      host.startsWith("172.16.") || host.startsWith("172.17.") || host.startsWith("172.18.") ||
+      host.startsWith("172.19.") || host.startsWith("172.2") || host.startsWith("172.30.") ||
+      host.startsWith("172.31.") ||
+      host === "169.254.169.254" ||                // AWS/GCP metadata
+      host.endsWith(".internal") ||
+      host === "metadata.google.internal" ||
+      host === "[::1]" ||
+      host === "0.0.0.0"
+    ) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Scrape og:image from a URL (works on most news sites)
 async function scrapeOgImage(url: string): Promise<string | null> {
+  if (!isSafeUrl(url)) return null;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -119,22 +147,20 @@ const GEOS = [
 ];
 
 export async function GET(req: NextRequest) {
-  // ── Auth check ──
+  // ── Auth check (required in ALL environments) ──
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
   }
-  if (cronSecret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const auth = req.headers.get("authorization");
+  if (auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    return NextResponse.json({ error: "Supabase not configured (missing service role key)" }, { status: 500 });
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -171,17 +197,19 @@ export async function GET(req: NextRequest) {
       for (const scenario of scenarios) {
         const { outcomes, body, content_type, read_time, ...rest } = scenario;
 
-        // Fetch cover image via multiple strategies (best first)
+        // Fetch cover image — race all strategies in parallel, take first success
         let cover_image: string | null = null;
         try {
-          // Strategy 1: Wikipedia — most reliable for known entities
-          cover_image = await fetchWikipediaImage(rest.source_trend);
-          // Strategy 2: DuckDuckGo instant answer
-          if (!cover_image) cover_image = await fetchDuckDuckGoImage(rest.source_trend);
-          // Strategy 3: Scrape og:image from source URL
-          if (!cover_image) cover_image = await scrapeOgImage(rest.source_trend_url);
-          // Strategy 4: Bing image search
-          if (!cover_image) cover_image = await searchImageForHeadline(rest.source_trend + " news");
+          const results = await Promise.allSettled([
+            fetchWikipediaImage(rest.source_trend),
+            fetchDuckDuckGoImage(rest.source_trend),
+            scrapeOgImage(rest.source_trend_url),
+            searchImageForHeadline(rest.source_trend + " news"),
+          ]);
+          // Pick first fulfilled non-null result (ordered by preference)
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value) { cover_image = r.value; break; }
+          }
         } catch { /* non-critical */ }
 
         // Insert scenario with body, content_type, and cover image

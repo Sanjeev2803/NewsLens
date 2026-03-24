@@ -5,6 +5,7 @@ import { LANGUAGE_STATE_MAP, fetchGoogleTrends, getRegionalGeo, fetchRegionalFee
 import { cachedFetch, getCacheStats, setCacheEntry } from "@/lib/cache";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { enrichArticleImages } from "@/lib/imageEnrich";
+import { assembleNewsFeed } from "@/lib/newsAssemble";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -13,12 +14,7 @@ import { enrichArticleImages } from "@/lib/imageEnrich";
 const MAX_ENRICHED_KEYS = 100;
 const enrichedKeys = new Set<string>();
 
-const COUNTRIES_MAP: Record<string, string> = {
-  in: "india", us: "united states", gb: "united kingdom", jp: "japan",
-  au: "australia", ca: "canada", de: "germany", fr: "france",
-  br: "brazil", cn: "china", ru: "russia", za: "south africa",
-};
-const ALLOWED_COUNTRIES = Object.keys(COUNTRIES_MAP);
+const ALLOWED_COUNTRIES = ["in", "us", "gb", "jp", "au", "ca", "de", "fr", "br", "cn", "ru", "za"];
 const ALLOWED_CATEGORIES = ["general", "business", "technology", "science", "health", "sports", "entertainment", "nation"];
 const ALLOWED_LANGS = ["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa", "ur", "ja", "de", "fr", "pt", "zh", "ru"];
 
@@ -66,76 +62,14 @@ export async function GET(req: NextRequest) {
           fetchGoogleTrends(isRegionalIndian ? getRegionalGeo(lang, country) : country.toUpperCase()),
         ]);
 
-        // ── Freshness filter ──
-        const now = Date.now();
-        const MAX_AGE_REGIONAL = 24 * 60 * 60 * 1000;
-        const MAX_AGE_GLOBAL = 48 * 60 * 60 * 1000;
-
-        const freshRegional = regionalResult.articles.filter((a: any) => {
-          const age = now - new Date(a.publishedAt).getTime();
-          return age < MAX_AGE_REGIONAL && age >= 0;
+        return assembleNewsFeed({
+          globalArticles: globalResult.articles,
+          regionalArticles: regionalResult.articles,
+          trends,
+          country,
+          lang,
+          category,
         });
-
-        const freshGlobal = globalResult.articles.filter((a: any) => {
-          const age = now - new Date(a.publishedAt).getTime();
-          return age < MAX_AGE_GLOBAL && age >= 0;
-        });
-
-        // ── Regional filtering ──
-        let filteredGlobal = freshGlobal;
-        if (isRegionalIndian && freshRegional.length >= 3) {
-          const regionStates = LANGUAGE_STATE_MAP[lang]?.states || [];
-          const regionKeywords = [
-            country.toUpperCase(),
-            ...regionStates.map((s: string) => s.toLowerCase()),
-            "india", "indian",
-          ];
-          filteredGlobal = freshGlobal.filter((a: any) => {
-            const text = `${a.title} ${a.description} ${a.source?.name || ""}`.toLowerCase();
-            return regionKeywords.some((kw) => text.includes(kw));
-          });
-          if (filteredGlobal.length < 2) {
-            filteredGlobal = freshGlobal.slice(0, 3);
-          }
-        } else if (category === "nation" && country !== "in") {
-          const countryLabel = (COUNTRIES_MAP[country] || country).toLowerCase();
-          filteredGlobal = freshGlobal.filter((a: any) => {
-            const text = `${a.title} ${a.description} ${a.source?.name || ""}`.toLowerCase();
-            return text.includes(countryLabel);
-          });
-          if (filteredGlobal.length < 2) filteredGlobal = freshGlobal.slice(0, 5);
-        }
-
-        // ── Deduplicate ──
-        const allArticles = [...freshRegional, ...filteredGlobal];
-        const seen = new Set<string>();
-        const unique = allArticles.filter((a: any) => {
-          if (!a.title) return false;
-          const k = a.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 50);
-          if (!k || seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-
-        // ── Sort: images first, then by date ──
-        unique.sort((a: any, b: any) => {
-          if (a.image && !b.image) return -1;
-          if (!a.image && b.image) return 1;
-          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-        });
-
-        const allSources = [...new Set([...regionalResult.sources, ...globalResult.sources])];
-        const oneHourAgo = Date.now() - 60 * 60 * 1000;
-        const freshCount = unique.filter((a: any) => new Date(a.publishedAt).getTime() > oneHourAgo).length;
-
-        return {
-          articles: unique.slice(0, 30),
-          totalArticles: unique.length,
-          freshCount,
-          sources: allSources,
-          trending: trends.slice(0, 12),
-          region: isRegionalIndian ? LANGUAGE_STATE_MAP[lang].states.join(", ") : null,
-        };
       },
       { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
     );

@@ -20,6 +20,7 @@ import Footer from "@/components/layout/Footer";
 import OutcomePoll from "@/components/whatif/OutcomePoll";
 import type { Scenario, TimelineNode } from "@/lib/whatif/types";
 import { CONTENT_TYPE_LABELS } from "@/lib/whatif/types";
+import { timeAgo } from "@/lib/utils";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -35,15 +36,6 @@ const IMPACT_CONFIG = [
   { key: "society" as const, label: "Society", color: "#2DC653" },
   { key: "tech" as const, label: "Tech", color: "#00B4D8" },
 ];
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
-  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? "s" : ""} ago`;
-}
 
 // Simple markdown-ish renderer for article body
 function ArticleBody({ body }: { body: string }) {
@@ -121,8 +113,17 @@ function ArticleBody({ body }: { body: string }) {
   );
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function formatInline(text: string): string {
-  return text
+  return escapeHtml(text)
     .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-scroll-cream/90 font-semibold">$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
@@ -132,6 +133,8 @@ export default function ScenarioDetailPage() {
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -266,16 +269,30 @@ export default function ScenarioDetailPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1">
-                <button className="p-2 rounded-md text-mist-gray/30 hover:text-amaterasu-purple hover:bg-amaterasu-purple/5 transition-all">
+              <div className="flex items-center gap-1 relative">
+                <button
+                  onClick={() => setBookmarked((b) => !b)}
+                  className={`p-2 rounded-md transition-all ${bookmarked ? "text-amaterasu-purple bg-amaterasu-purple/10" : "text-mist-gray/30 hover:text-amaterasu-purple hover:bg-amaterasu-purple/5"}`}
+                  title={bookmarked ? "Remove bookmark" : "Bookmark"}
+                >
                   <IconBookmark size={15} />
                 </button>
-                <button className="p-2 rounded-md text-mist-gray/30 hover:text-rasengan-blue hover:bg-rasengan-blue/5 transition-all">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    setShareToast(true);
+                    setTimeout(() => setShareToast(false), 2000);
+                  }}
+                  className="p-2 rounded-md text-mist-gray/30 hover:text-rasengan-blue hover:bg-rasengan-blue/5 transition-all"
+                  title="Copy link"
+                >
                   <IconShare2 size={15} />
                 </button>
-                <button className="p-2 rounded-md text-mist-gray/30 hover:text-chakra-orange hover:bg-chakra-orange/5 transition-all">
-                  <IconGitFork size={15} />
-                </button>
+                {shareToast && (
+                  <span className="absolute -bottom-7 right-0 text-[10px] font-mono text-rasengan-blue bg-rasengan-blue/10 px-2 py-0.5 rounded">
+                    Link copied!
+                  </span>
+                )}
               </div>
             </motion.div>
           </div>

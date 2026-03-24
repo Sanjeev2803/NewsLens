@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /*
   GET /api/whatif?category=all&sort=trending&page=1&limit=20
@@ -7,6 +8,16 @@ import { createServerSupabase } from "@/lib/supabase/server";
 */
 
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    const retryAfterSec = Math.ceil(rateCheck.retryAfterMs / 1000);
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
+
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") || "all";
   const sort = searchParams.get("sort") || "trending";
@@ -47,13 +58,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch scenarios" }, { status: 500 });
     }
 
-    return NextResponse.json({
-      scenarios: data || [],
-      total: count || 0,
-      page,
-      limit,
-      hasMore: (count || 0) > offset + limit,
-    });
+    return NextResponse.json(
+      {
+        scenarios: data || [],
+        total: count || 0,
+        page,
+        limit,
+        hasMore: (count || 0) > offset + limit,
+      },
+      { headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" } }
+    );
   } catch (err) {
     console.error("[whatif] Error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
