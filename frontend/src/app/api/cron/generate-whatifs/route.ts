@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchGoogleTrends } from "@/lib/regionalSources";
 import { generateScenarios } from "@/lib/whatif/generator";
 import { createClient } from "@supabase/supabase-js";
+import { isSafeUrl } from "@/lib/ssrf";
 
 /*
   Cron: Auto-generate What If scenarios from trending topics.
@@ -92,38 +93,7 @@ async function fetchWikipediaImage(query: string): Promise<string | null> {
   }
 }
 
-// SSRF protection — only allow HTTP(S) to public domains
-function isSafeUrl(raw: string): boolean {
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-    const host = u.hostname.toLowerCase();
-    // Block private/reserved IPv4, IPv6, metadata endpoints, and bypass tricks
-    if (
-      host === "localhost" ||
-      host.startsWith("127.") ||
-      host.startsWith("10.") ||
-      host.startsWith("192.168.") ||
-      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) || // 172.16.0.0 - 172.31.255.255
-      host.startsWith("169.254.") ||                  // Link-local + AWS/GCP metadata
-      host.endsWith(".internal") ||
-      host === "metadata.google.internal" ||
-      host === "0.0.0.0" ||
-      // IPv6 private/loopback
-      host === "[::1]" ||
-      host.startsWith("[fc") || host.startsWith("[fd") || // Unique local
-      host.startsWith("[fe80") ||                          // Link-local
-      host.startsWith("[::ffff:127") ||                    // IPv4-mapped loopback
-      // Bypass tricks: hex IPs, decimal IPs, zero-prefix
-      /^0x/i.test(host) ||                                // Hex IP (0x7f000001)
-      /^\d{8,}$/.test(host) ||                            // Decimal IP (2130706433)
-      /^0+\d/.test(host)                                  // Zero-prefix octal
-    ) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
+// SSRF protection imported from @/lib/ssrf
 
 // Scrape og:image from a URL (works on most news sites)
 async function scrapeOgImage(url: string): Promise<string | null> {

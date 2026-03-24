@@ -33,7 +33,8 @@ const inflight = new Map<string, Promise<unknown>>();
 
 // Cleanup stale entries every 60s (prevents memory leaks in long-running processes)
 const CLEANUP_KEY = "__newslens_cache_cleanup";
-if (!(globalThis as any)[CLEANUP_KEY]) {
+if ((globalThis as any)[CLEANUP_KEY]) clearInterval((globalThis as any)[CLEANUP_KEY]);
+{
   (globalThis as any)[CLEANUP_KEY] = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of memStore) {

@@ -15,9 +15,12 @@ import SocialPulse from "@/components/trending/SocialPulse";
 import NewsTimeline from "@/components/trending/NewsTimeline";
 import NarutoChatbot from "@/components/trending/NarutoChatbot";
 import { COUNTRIES, LANGUAGES, CATEGORIES } from "@/components/trending/constants";
+import { useGeoCountry } from "@/lib/useGeoCountry";
 
 export default function TrendingPage() {
-  const [country, setCountry] = useState("in");
+  const geoCountry = useGeoCountry("in");
+  const [country, setCountry] = useState(geoCountry);
+  const [userChangedCountry, setUserChangedCountry] = useState(false);
   const [lang, setLang] = useState("en");
   const [category, setCategory] = useState("general");
   const [articles, setArticles] = useState<Article[]>([]);
@@ -33,6 +36,13 @@ export default function TrendingPage() {
   const [socialPlatforms, setSocialPlatforms] = useState<string[]>([]);
   const [readerArticle, setReaderArticle] = useState<Article | null>(null);
   const speakRef = useRef<((text: string) => void) | null>(null);
+
+  // Sync geo-detected country on first load (not if user manually changed)
+  useEffect(() => {
+    if (!userChangedCountry && geoCountry !== country) {
+      setCountry(geoCountry);
+    }
+  }, [geoCountry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchNews = useCallback(async () => {
     setLoading(true); setError(null);
@@ -115,7 +125,7 @@ export default function TrendingPage() {
                 {showCountries && (
                   <motion.div className="absolute top-full mt-1 left-0 z-50 w-48 max-h-64 overflow-y-auto rounded-xl bg-[#0c0c14]/95 backdrop-blur-xl border border-white/[0.06] shadow-[0_20px_60px_rgba(0,0,0,0.6)] py-1" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}>
                     {COUNTRIES.map((c) => (
-                      <button key={c.code} onClick={() => { setCountry(c.code); setShowCountries(false); }}
+                      <button key={c.code} onClick={() => { setCountry(c.code); setUserChangedCountry(true); setShowCountries(false); }}
                         className={`w-full px-3 py-2 text-left text-sm font-heading flex items-center gap-2 hover:bg-white/[0.04] transition-colors ${country === c.code ? "text-chakra-orange" : "text-scroll-cream/80"}`}>
                         <span>{c.flag}</span> {c.label}
                       </button>

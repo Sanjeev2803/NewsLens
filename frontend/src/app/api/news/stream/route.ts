@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { cachedFetch } from "@/lib/cache";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /*
   SSE endpoint — streams news updates to the client.
@@ -9,13 +10,24 @@ import { cachedFetch } from "@/lib/cache";
   GET /api/news/stream?category=general&country=in&lang=en
 
   Sends an event every 60s with fresh data, or immediately on connect.
-  Client uses EventSource to receive updates.
+  Client uses EventSource to receive updates. Max 10 minutes per connection.
 */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_STREAM_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.retryAfterMs / 1000)) } }
+    );
+  }
+
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") || "general";
   const country = searchParams.get("country") || "in";
@@ -62,10 +74,19 @@ export async function GET(req: NextRequest) {
       // Then every 60 seconds
       const interval = setInterval(fetchAndSend, 60_000);
 
+      // Max stream duration — close after 10 minutes, client will auto-reconnect
+      const maxLifetime = setTimeout(() => {
+        closed = true;
+        clearInterval(interval);
+        send("reconnect", { reason: "max-lifetime" });
+        try { controller.close(); } catch { /* already closed */ }
+      }, MAX_STREAM_DURATION_MS);
+
       // Handle client disconnect via abort signal
       req.signal.addEventListener("abort", () => {
         closed = true;
         clearInterval(interval);
+        clearTimeout(maxLifetime);
         try { controller.close(); } catch { /* already closed */ }
       });
     },

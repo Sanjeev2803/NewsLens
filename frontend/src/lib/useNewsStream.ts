@@ -84,22 +84,18 @@ export function useNewsStream({
           } catch { /* malformed event */ }
         });
 
-        es.addEventListener("error", () => {
+        function handleSSEError() {
           if (!mounted) return;
-          // SSE failed — fall back to polling
           es.close();
           eventSourceRef.current = null;
+          // Clear any existing fallback interval before creating a new one
+          if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
           fetchFallback();
           fallbackIntervalRef.current = setInterval(fetchFallback, 60_000);
-        });
+        }
 
-        es.onerror = () => {
-          if (!mounted) return;
-          es.close();
-          eventSourceRef.current = null;
-          fetchFallback();
-          fallbackIntervalRef.current = setInterval(fetchFallback, 60_000);
-        };
+        es.addEventListener("error", handleSSEError);
+        es.onerror = handleSSEError;
       } catch {
         // EventSource not supported — fallback
         fetchFallback();

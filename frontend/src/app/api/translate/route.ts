@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/translate?text=<encoded>&to=hi&from=auto
 // Free translation using Google gtx endpoint (no API key) with MyMemory fallback
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.retryAfterMs / 1000)) } }
+    );
+  }
+
   const text = req.nextUrl.searchParams.get("text");
   const to = req.nextUrl.searchParams.get("to") || "hi";
   const from = req.nextUrl.searchParams.get("from") || "auto";

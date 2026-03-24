@@ -20,7 +20,7 @@ export interface SocialPost {
   url: string;
   image: string | null;
   author: string;
-  platform: "reddit" | "bluesky" | "youtube" | "wikipedia";
+  platform: "reddit" | "bluesky" | "youtube" | "wikipedia" | "hackernews" | "threads" | "x";
   score: number;
   timestamp: string;
   comments?: number;

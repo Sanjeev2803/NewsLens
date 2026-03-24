@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSafeUrl } from "@/lib/ssrf";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/article?url=<encoded-url>
 // Extracts main article text from a news page
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.retryAfterMs / 1000)) } }
+    );
+  }
+
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return NextResponse.json({ error: "url parameter required" }, { status: 400 });
+
+  if (!isSafeUrl(url)) {
+    return NextResponse.json({ error: "URL not allowed" }, { status: 403 });
+  }
 
   try {
     const controller = new AbortController();

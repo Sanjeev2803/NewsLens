@@ -75,8 +75,13 @@ function NarutoChatbot({ lang, onSpeak }: { lang: string; onSpeak: (fn: (text: s
 
   useEffect(() => {
     if (hasGreeted) return;
-    const t = setTimeout(() => { setIsOpen(true); setHasGreeted(true); setTimeout(() => setIsOpen(false), 4000); }, 3000);
-    return () => clearTimeout(t);
+    let innerTimeout: ReturnType<typeof setTimeout>;
+    const t = setTimeout(() => {
+      setIsOpen(true);
+      setHasGreeted(true);
+      innerTimeout = setTimeout(() => setIsOpen(false), 4000);
+    }, 3000);
+    return () => { clearTimeout(t); clearTimeout(innerTimeout); };
   }, [hasGreeted]);
 
   return (

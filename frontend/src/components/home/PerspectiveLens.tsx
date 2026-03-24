@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IconEye, IconBrandReddit, IconBrandYoutube, IconWorld, IconBook, IconRefresh, IconExternalLink } from "@tabler/icons-react";
+import { useGeoCountry } from "@/lib/useGeoCountry";
 
 /*
   Perspective Lens — Multi-platform story comparison
@@ -92,6 +93,7 @@ function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
 }
 
 export default function PerspectiveLens() {
+  const country = useGeoCountry("in");
   const [topics, setTopics] = useState<string[]>([]);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [views, setViews] = useState<PlatformView[]>([]);
@@ -102,7 +104,7 @@ export default function PerspectiveLens() {
   useEffect(() => {
     async function fetchTopics() {
       try {
-        const res = await fetch("/api/news?category=general&country=in&lang=en&max=5");
+        const res = await fetch(`/api/news?category=general&country=${country}&lang=en&max=5`);
         if (!res.ok) return;
         const data = await res.json();
         const headlines = (data.articles || [])
@@ -120,7 +122,7 @@ export default function PerspectiveLens() {
       }
     }
     fetchTopics();
-  }, []);
+  }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadPerspectives(topic: string) {
     setActiveTopic(topic);
@@ -129,7 +131,7 @@ export default function PerspectiveLens() {
 
     try {
       // Fetch social data — the API already has Reddit, Bluesky, YouTube, Wikipedia
-      const res = await fetch(`/api/social?country=in&lang=en&category=general`);
+      const res = await fetch(`/api/social?country=${country}&lang=en&category=general`);
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       const posts = data.posts || [];

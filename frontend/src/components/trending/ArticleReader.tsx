@@ -32,11 +32,13 @@ function ArticleReader({ article, userLang, onVoiceRead, onClose }: { article: A
 
   // Fetch full article content on mount
   useEffect(() => {
+    const controller = new AbortController();
     setContentLoading(true);
-    fetch(`/api/article?url=${encodeURIComponent(article.url)}`)
+    fetch(`/api/article?url=${encodeURIComponent(article.url)}`, { signal: controller.signal })
       .then(r => r.json())
       .then(data => { setArticleContent(data.content || null); setContentLoading(false); })
-      .catch(() => setContentLoading(false));
+      .catch((err) => { if (err.name !== "AbortError") setContentLoading(false); });
+    return () => controller.abort();
   }, [article.url]);
 
   const handleLangSwitch = async (targetLang: string) => {

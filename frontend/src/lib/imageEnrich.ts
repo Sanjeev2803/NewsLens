@@ -10,6 +10,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { isSafeUrl } from "./ssrf";
+
 // ── Known logo/icon/branding URL patterns ──
 const LOGO_PATTERNS = [
   /logo/i, /favicon/i, /icon[-_.]?/i, /brand/i, /avatar/i,
@@ -42,6 +44,7 @@ function isRealArticleImage(imgUrl: string): boolean {
 
 // ── Scrape og:image / twitter:image from article HTML ──
 async function scrapeArticleImage(url: string): Promise<string | null> {
+  if (!isSafeUrl(url)) return null;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);

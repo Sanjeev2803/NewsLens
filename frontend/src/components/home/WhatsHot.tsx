@@ -15,6 +15,7 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 import { timeAgo } from "@/lib/utils";
+import { useGeoCountry } from "@/lib/useGeoCountry";
 
 /*
   What's Hot — Shows what's viral in each category right now.
@@ -93,6 +94,7 @@ function HotCard({ item, index, color }: { item: HotItem; index: number; color: 
 }
 
 export default function WhatsHot() {
+  const country = useGeoCountry("in");
   const [activeCategory, setActiveCategory] = useState("sports");
   const [items, setItems] = useState<HotItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export default function WhatsHot() {
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch(`/api/news?category=${activeCategory}&country=in&lang=en&max=5`);
+        const res = await fetch(`/api/news?category=${activeCategory}&country=${country}&lang=en&max=5`);
         if (!res.ok) { setError(true); return; }
         const data = await res.json();
         setItems(data.articles || []);
@@ -114,7 +116,7 @@ export default function WhatsHot() {
       }
     }
     fetchHot();
-  }, [activeCategory]);
+  }, [activeCategory, country]);
 
   const activeCat = HOT_CATEGORIES.find((c) => c.id === activeCategory) || HOT_CATEGORIES[0];
 

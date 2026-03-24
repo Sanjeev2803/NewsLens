@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { timeAgo } from "@/lib/utils";
 import {
   IconMapPin,
   IconArrowRight,
@@ -73,17 +74,6 @@ const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
 const MAP_WIDTH = 960;
 const MAP_HEIGHT = 500;
 
-function timeAgo(dateStr: string) {
-  const ts = new Date(dateStr).getTime();
-  if (isNaN(ts)) return "recently";
-  const diff = Date.now() - ts;
-  if (diff < 0) return "just now";
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function isSafeUrl(url: string) {
   return /^https?:\/\//i.test(url);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllSocial } from "@/lib/socialSources";
 import { cachedFetch } from "@/lib/cache";
+import { isSafeUrl } from "@/lib/ssrf";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 // ── Bing Image Search fallback for social posts missing images ──
 async function searchBingImage(query: string): Promise<string | null> {
@@ -27,6 +29,7 @@ async function searchBingImage(query: string): Promise<string | null> {
     for (const m of murlMatches) {
       const url = decodeURIComponent(m[1]);
       if (/logo|icon|favicon|avatar|badge|pixel/i.test(url)) continue;
+      if (!isSafeUrl(url)) continue;
       return url;
     }
     // Bing thumbnails as fallback
@@ -40,6 +43,15 @@ async function searchBingImage(query: string): Promise<string | null> {
 
 // GET /api/social?country=in&lang=ta&category=general
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.retryAfterMs / 1000)) } }
+    );
+  }
+
   const { searchParams } = req.nextUrl;
   const country = searchParams.get("country") || "in";
   const lang = searchParams.get("lang") || "en";

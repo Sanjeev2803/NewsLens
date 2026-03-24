@@ -18,7 +18,7 @@ const ALLOWED_PARAMS: Record<string, RegExp> = {
   page: /^\d{1,4}$/,
   limit: /^\d{1,3}$/,
   // Whatif-image proxy params
-  prompt: /^.{1,500}$/,
+  prompt: /^[a-zA-Z0-9 ,.\-!?':;()_@#%&+=/\[\]]+$/,
   seed: /^\d{1,12}$/,
   // Article page params — allow URL-safe characters
   url: /^https?:\/\/.+$/,

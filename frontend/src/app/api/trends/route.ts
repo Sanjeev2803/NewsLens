@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchGoogleTrends, getRegionalGeo, getGeoForCountry, LANGUAGE_STATE_MAP } from "@/lib/regionalSources";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/trends?country=in&lang=te
 export async function GET(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateCheck = await checkRateLimitAsync(clientIp);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.retryAfterMs / 1000)) } }
+    );
+  }
+
   const { searchParams } = req.nextUrl;
   const country = searchParams.get("country") || "in";
   const lang = searchParams.get("lang") || "en";

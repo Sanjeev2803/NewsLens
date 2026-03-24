@@ -1,11 +1,13 @@
 /*
-  Social/Trending Sources — alternatives to X/Twitter
-  All free, no API keys required
+  Social/Trending Sources — multi-platform pulse
 
   1. Reddit — trending posts from news/regional subreddits
   2. Bluesky — open AT Protocol public search
   3. YouTube Trending — RSS feeds
   4. Wikipedia Most Read — what people are searching
+  5. Hacker News — tech/startup expert takes (free API)
+  6. Threads (Meta) — public search API, growing fast in India
+  7. X/Twitter — Nitter RSS instances with fallback chain
 */
 
 export interface SocialPost {
@@ -14,7 +16,7 @@ export interface SocialPost {
   url: string;
   image: string | null;
   author: string;
-  platform: "reddit" | "bluesky" | "youtube" | "wikipedia";
+  platform: "reddit" | "bluesky" | "youtube" | "wikipedia" | "hackernews" | "threads" | "x";
   score: number; // upvotes / engagement
   timestamp: string;
   comments?: number;
@@ -405,6 +407,325 @@ export function getBlueskyQuery(country: string, lang: string, category: string)
   return BLUESKY_QUERIES[key] || BLUESKY_QUERIES[`${country}_en`] || "breaking news";
 }
 
+// ── Hacker News (Source 5) — free API, no key needed ──
+
+const HN_CATEGORY_MAP: Record<string, string> = {
+  technology: "topstories",
+  business: "topstories",
+  science: "topstories",
+  general: "beststories",
+};
+
+export async function fetchHackerNews(
+  category: string = "general",
+  limit: number = 8
+): Promise<SocialPost[]> {
+  try {
+    const storyType = HN_CATEGORY_MAP[category] || "beststories";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    // Fetch top story IDs
+    const idsRes = await fetch(
+      `https://hacker-news.firebaseio.com/v0/${storyType}.json`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    if (!idsRes.ok) return [];
+
+    const ids: number[] = await idsRes.json();
+    const topIds = ids.slice(0, limit);
+
+    // Fetch story details in parallel
+    const stories = await Promise.allSettled(
+      topIds.map(async (id) => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch(
+          `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
+          { signal: ctrl.signal }
+        );
+        clearTimeout(t);
+        if (!res.ok) return null;
+        return res.json();
+      })
+    );
+
+    return stories
+      .filter((r): r is PromiseFulfilledResult<Record<string, unknown>> =>
+        r.status === "fulfilled" && r.value != null && r.value.type === "story"
+      )
+      .map((r) => {
+        const s = r.value;
+        return {
+          title: String(s.title || ""),
+          text: String(s.title || ""),
+          url: String(s.url || `https://news.ycombinator.com/item?id=${s.id}`),
+          image: null, // HN doesn't have images
+          author: `HN · ${s.by || "anon"}`,
+          platform: "hackernews" as const,
+          score: Number(s.score) || 0,
+          timestamp: new Date(Number(s.time) * 1000).toISOString(),
+          comments: Number(s.descendants) || 0,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+// ── Threads / Meta (Source 6) — public search ──
+
+/*
+  Threads API status: Meta launched the Threads API in June 2024.
+  Public post search requires an access token (free, via Meta Developer Portal).
+  Without a token, we use the public web search fallback.
+
+  Set THREADS_ACCESS_TOKEN in .env to enable direct API access.
+  Without it, falls back to searching via public web endpoints.
+*/
+
+export async function fetchThreadsTrending(
+  query: string,
+  limit: number = 6
+): Promise<SocialPost[]> {
+  const token = process.env.THREADS_ACCESS_TOKEN;
+
+  if (token) {
+    return fetchThreadsViaAPI(query, limit, token);
+  }
+  // No token — fall back to searching public Threads content via web
+  return fetchThreadsViaWeb(query, limit);
+}
+
+async function fetchThreadsViaAPI(
+  query: string,
+  limit: number,
+  token: string
+): Promise<SocialPost[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    // Threads API search endpoint
+    const res = await fetch(
+      `https://graph.threads.net/v1.0/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,text,timestamp,username,like_count,reply_count,permalink,media_url,media_type`,
+      {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const posts = data?.data || [];
+
+    return posts.map((p: Record<string, unknown>) => ({
+      title: String(p.text || "").slice(0, 120),
+      text: String(p.text || ""),
+      url: String(p.permalink || `https://threads.net`),
+      image: p.media_type === "IMAGE" ? String(p.media_url || "") : null,
+      author: `@${p.username || "unknown"}`,
+      platform: "threads" as const,
+      score: Number(p.like_count) || 0,
+      timestamp: String(p.timestamp || new Date().toISOString()),
+      comments: Number(p.reply_count) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchThreadsViaWeb(
+  query: string,
+  limit: number
+): Promise<SocialPost[]> {
+  // Fallback: fetch from Threads public profiles via known news handles
+  // This is limited but works without auth
+  const newsHandles: Record<string, string[]> = {
+    india: ["ndtv", "republic", "thehindu", "zeenews", "timesofindia"],
+    tech: ["techcrunch", "theverge", "wired", "engadget"],
+    general: ["bbc", "cnn", "reuters", "apnews"],
+  };
+
+  const handles = newsHandles[query] || newsHandles.general;
+  const results: SocialPost[] = [];
+
+  const fetches = handles.slice(0, 3).map(async (handle) => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(
+        `https://www.threads.net/@${handle}`,
+        {
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            Accept: "text/html",
+          },
+        }
+      );
+      clearTimeout(timeout);
+      if (!res.ok) return [];
+
+      const html = await res.text();
+
+      // Extract og:description which contains recent post text
+      const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+      const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+      const imgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+
+      if (descMatch?.[1]) {
+        return [{
+          title: String(titleMatch?.[1] || handle).slice(0, 120),
+          text: String(descMatch[1]).slice(0, 300),
+          url: `https://www.threads.net/@${handle}`,
+          image: imgMatch?.[1] || null,
+          author: `@${handle}`,
+          platform: "threads" as const,
+          score: 0,
+          timestamp: new Date().toISOString(),
+          comments: 0,
+        }];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  const settled = await Promise.allSettled(fetches);
+  for (const r of settled) {
+    if (r.status === "fulfilled") results.push(...r.value);
+  }
+
+  return results.slice(0, limit);
+}
+
+// ── X/Twitter via Nitter RSS (Source 7) ──
+
+/*
+  Nitter is an open-source Twitter frontend that exposes RSS feeds.
+  Public instances rotate — we use a fallback chain for reliability.
+  If all Nitter instances fail, returns empty (graceful degradation).
+*/
+
+const NITTER_INSTANCES = [
+  "nitter.privacydev.net",
+  "nitter.poast.org",
+  "nitter.1d4.us",
+  "nitter.kavin.rocks",
+];
+
+const X_TRENDING_ACCOUNTS: Record<string, string[]> = {
+  in: ["ndtv", "TimesNow", "republic", "PTI_News", "ANI", "the_hindu"],
+  us: ["AP", "Reuters", "nytimes", "CNN", "washingtonpost", "BBCBreaking"],
+  gb: ["BBCBreaking", "SkyNews", "guardian", "Telegraph", "iabortnews"],
+  general: ["Reuters", "AP", "BBCBreaking", "AFP", "AJEnglish"],
+  sports: ["ESPNcricinfo", "SkySports", "espn", "NBA", "FIFAcom"],
+  tech: ["TechCrunch", "verge", "WIRED", "mashable", "engadget"],
+  entertainment: ["variety", "THR", "ETimes", "FilmCompanion"],
+};
+
+function getXAccounts(country: string, category: string): string[] {
+  if (category !== "general" && X_TRENDING_ACCOUNTS[category]) {
+    return X_TRENDING_ACCOUNTS[category];
+  }
+  return X_TRENDING_ACCOUNTS[country] || X_TRENDING_ACCOUNTS.general;
+}
+
+export async function fetchXTrending(
+  country: string,
+  category: string,
+  limit: number = 6
+): Promise<SocialPost[]> {
+  const accounts = getXAccounts(country, category);
+  const results: SocialPost[] = [];
+
+  // Try Nitter instances in order until one works
+  for (const instance of NITTER_INSTANCES) {
+    if (results.length >= limit) break;
+
+    const fetches = accounts.slice(0, 4).map(async (account) => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(
+          `https://${instance}/${account}/rss`,
+          {
+            signal: controller.signal,
+            headers: { "User-Agent": "NewsLens/1.0" },
+          }
+        );
+        clearTimeout(timeout);
+        if (!res.ok) return [];
+
+        const xml = await res.text();
+
+        // Parse RSS items
+        const items: SocialPost[] = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null && items.length < 3) {
+          const item = match[1];
+          const title = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)?.[1]
+            || item.match(/<title>(.*?)<\/title>/)?.[1] || "";
+          const link = item.match(/<link>(.*?)<\/link>/)?.[1] || "";
+          const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
+          const desc = item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] || "";
+
+          // Extract image from description HTML
+          const imgMatch = desc.match(/<img[^>]+src=["']([^"']+)["']/i);
+
+          items.push({
+            title: title.replace(/<[^>]+>/g, "").slice(0, 140),
+            text: desc.replace(/<[^>]+>/g, "").slice(0, 280),
+            url: link.replace(instance, "x.com"),
+            image: imgMatch?.[1] || null,
+            author: `@${account}`,
+            platform: "x" as const,
+            score: 0, // Nitter RSS doesn't expose engagement counts
+            timestamp: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+            comments: 0,
+          });
+        }
+        return items;
+      } catch {
+        return [];
+      }
+    });
+
+    const settled = await Promise.allSettled(fetches);
+    for (const r of settled) {
+      if (r.status === "fulfilled") results.push(...r.value);
+    }
+
+    // If this instance returned data, stop trying others
+    if (results.length > 0) break;
+  }
+
+  // Sort by recency (Nitter doesn't give engagement data)
+  results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return results.slice(0, limit);
+}
+
+// ── Threads search queries by region ──
+
+const THREADS_QUERIES: Record<string, string> = {
+  in: "india",
+  us: "general",
+  gb: "general",
+  tech: "tech",
+  sports: "india", // Threads is big in India for sports
+  entertainment: "india",
+};
+
+function getThreadsQuery(country: string, category: string): string {
+  if (category !== "general" && THREADS_QUERIES[category]) return THREADS_QUERIES[category];
+  return THREADS_QUERIES[country] || "general";
+}
+
 // ── Master Social Aggregator ──
 
 export async function fetchAllSocial(
@@ -416,36 +737,46 @@ export async function fetchAllSocial(
   platforms: string[];
 }> {
   const bskyQuery = getBlueskyQuery(country, lang, category);
+  const threadsQuery = getThreadsQuery(country, category);
 
-  const [reddit, bluesky, youtube, wikipedia] = await Promise.allSettled([
+  const [reddit, bluesky, youtube, wikipedia, hackernews, threads, xTwitter] = await Promise.allSettled([
     fetchRedditTrending(country, lang, category, 8),
     fetchBlueskyTrending(bskyQuery, 6),
     fetchYouTubeTrending(country),
     fetchWikipediaTrending(lang),
+    fetchHackerNews(category, 6),
+    fetchThreadsTrending(threadsQuery, 4),
+    fetchXTrending(country, category, 4),
   ]);
 
   const posts: SocialPost[] = [];
   const platforms: string[] = [];
 
-  // Interleave platforms — take top from each, don't let Wikipedia dominate
   const redditPosts = reddit.status === "fulfilled" ? reddit.value : [];
   const bskyPosts = bluesky.status === "fulfilled" ? bluesky.value : [];
   const ytPosts = youtube.status === "fulfilled" ? youtube.value : [];
   const wikiPosts = wikipedia.status === "fulfilled" ? wikipedia.value : [];
+  const hnPosts = hackernews.status === "fulfilled" ? hackernews.value : [];
+  const threadsPosts = threads.status === "fulfilled" ? threads.value : [];
+  const xPosts = xTwitter.status === "fulfilled" ? xTwitter.value : [];
 
   if (redditPosts.length > 0) platforms.push("Reddit");
   if (bskyPosts.length > 0) platforms.push("Bluesky");
   if (ytPosts.length > 0) platforms.push("YouTube");
   if (wikiPosts.length > 0) platforms.push("Wikipedia");
+  if (hnPosts.length > 0) platforms.push("Hacker News");
+  if (threadsPosts.length > 0) platforms.push("Threads");
+  if (xPosts.length > 0) platforms.push("X");
 
-  // Sort each by score, then interleave: Reddit first (most like X), then others
+  // Sort each by score, then interleave: X and Reddit first (real-time pulse), then others
   redditPosts.sort((a, b) => b.score - a.score);
-  const maxLen = Math.max(redditPosts.length, bskyPosts.length, ytPosts.length, wikiPosts.length);
+  hnPosts.sort((a, b) => b.score - a.score);
+  const allSources = [xPosts, redditPosts, threadsPosts, hnPosts, bskyPosts, ytPosts, wikiPosts];
+  const maxLen = Math.max(...allSources.map(s => s.length));
   for (let i = 0; i < maxLen; i++) {
-    if (i < redditPosts.length) posts.push(redditPosts[i]);
-    if (i < bskyPosts.length) posts.push(bskyPosts[i]);
-    if (i < ytPosts.length) posts.push(ytPosts[i]);
-    if (i < wikiPosts.length) posts.push(wikiPosts[i]);
+    for (const source of allSources) {
+      if (i < source.length) posts.push(source[i]);
+    }
   }
 
   return { posts, platforms };

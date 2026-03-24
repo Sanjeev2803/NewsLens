@@ -161,229 +161,186 @@ const FUSION_TITLES: Record<string, TitleGen[]> = {
 const CONTENT_TYPES = ["hot_take", "deep_dive", "versus", "prediction", "timeline"] as const;
 
 function generateHotTake(title: string, trend: string, category: string, related: string, crossover: string): string {
-  return `## Alright, Let's Get Into It
+  return `## The Situation
 
-<!-- IMG: colorful cartoon illustration of ${trend}, ${category} theme, dramatic moment, vibrant Amul topical ad style, bold outlines -->
+**${trend}** has dominated headlines and social feeds over the past 48 hours. Beneath the noise, a more nuanced picture is emerging — one that most hot takes are missing entirely.
 
-So **${trend}** is everywhere right now. Your timeline. Your group chats. That one colleague who suddenly has a PhD in ${category}. But here's what 90% of people are missing while they're busy having opinions.
+${title} may sound like speculation, but historical precedent suggests otherwise. The last time a comparable ${category} event reached this velocity, the outcome defied every mainstream prediction.
 
-**${title}** — sounds dramatic? Maybe. But the last time something like this happened, the outcome was wilder than anyone predicted.
+## The ${crossover} Parallel
 
-## The ${crossover} Parallel (Stay With Me Here)
+In **${crossover}**, the consensus was confidently wrong — and the minority view turned out to be prescient. The pattern repeating around ${trend} is striking.
 
-<!-- IMG: cartoon mashup of ${trend} and ${crossover}, funny illustration, two worlds colliding, colorful editorial cartoon style -->
+| Indicator | Consensus View | Emerging Signal |
+|-----------|---------------|-----------------|
+| Momentum | Slowing down | Accelerating 3x vs. last month |
+| Public Sentiment | 70-30 split | Closer to 52-48 |
+| Institutional Positioning | Following the crowd | Quietly contrarian |
 
-Remember in **${crossover}** when everyone thought they knew how it would end? And then the twist hit and nobody saw it coming?
+## Three Numbers That Matter
 
-That's where we are with ${trend} right now. The consensus is confidently wrong, and the minority opinion is nervously right. History says: **bet on the nervous ones.**
+- **72%** — The rate at which the "obvious" prediction proves wrong in analogous ${category} situations.
+- **48 hours** — The decision window. After this, the narrative hardens and repositioning becomes costly.
+- **${related}** — The correlated signal that few are connecting to ${trend}, but should be.
 
-Here's the data:
+## The Ground-Level Signal
 
-| Metric | What People Think | What's Actually Happening |
-|--------|------------------|--------------------------|
-| Momentum | "It's slowing down" | Accelerating 3x faster than last month |
-| Public Sentiment | 70% one direction | Split 52-48 (much closer than it looks) |
-| Smart Money | "Following the crowd" | Quietly moving opposite |
+Official commentary and expert panels tell one story. Ground-level sentiment — group chats, regional forums, street-level indicators — tells another. In situations like this, the ground often leads the narrative by two to three weeks.
 
-## The 3 Numbers That Matter
+*The crowd is not always right. But its early signals deserve serious attention.*
 
-- **72%** — That's how often the "obvious" prediction turns out wrong in situations like ${trend}. We checked.
-- **48 hours** — The window before the narrative locks in. After that, changing your mind feels expensive.
-- **${related}** — The related signal that nobody's connecting to ${trend}. But they should be.
+## What Comes Next
 
-## Why Your Uncle's WhatsApp Forward Might Actually Be Right This Time
+**${title}** — the data points in one direction, but the prevailing assumption points in another. That gap is where the real story lives.
 
-Look, I know. The family group chat is usually where nuance goes to die. But broken clocks, twice a day, etc. The ground-level signal on ${trend} is capturing something the experts are too sophisticated to see.
-
-*The crowd isn't always wise. But it's always worth hearing.*
-
-## Your Call
-
-**${title}** — what's your gut say? Not your head. Not your carefully reasoned position. Your gut.
-
-*Vote below. The best predictions come from honest instinct, not performance.*`;
+*Cast your prediction below. The aggregate view often outperforms individual expert calls.*`;
 }
 
 function generateDeepDive(title: string, trend: string, _category: string, related: string, crossover: string): string {
-  return `## The Full Picture (Not the Headline Version)
+  return `## Beyond the Headlines
 
-<!-- IMG: cartoon detective investigating ${trend}, magnifying glass, evidence board with strings connecting clues, colorful illustration -->
+**${trend}** has moved past the initial reaction phase. The headline-level takes are in. What follows is a deeper examination of the forces at play — and why the second-order effects matter more than the first.
 
-Let's do something radical about **${trend}** — let's actually think about it for more than 30 seconds. Wild concept in 2026, I know.
+**${title}** carries a probability that most analysts are under-pricing. When the evidence is laid out systematically, the picture shifts considerably.
 
-**${title}** isn't clickbait. It's a scenario that has a disturbingly non-zero probability. And when you lay out the evidence, "disturbingly non-zero" starts feeling like "probably happening."
+## The Evidence
 
-## The Evidence Board (${crossover} Detective Mode)
+### Trend Velocity
+${trend} is not following the typical news cycle decay curve. Its engagement velocity matches only three comparable events in the past decade — all of which preceded significant structural shifts.
 
-Think of this like a **${crossover}** investigation. The clues are scattered, but once you connect them:
+### The Capital Signal
+When ${related} began moving, institutional players were already positioned. This suggests informed actors identified the trajectory weeks before public attention caught up.
 
-**Exhibit A: The Trend Data**
-${trend} isn't just trending — it's trending *differently*. The velocity curve matches only 3 previous events in the last decade. All three led to major shifts.
+### The Absence Pattern
+The voices that are typically loudest on matters like ${trend} have been notably measured. In both political and market contexts, calibrated silence from key actors is itself a data point.
 
-**Exhibit B: The Money Trail**
-Follow the capital. When ${related} started moving, the big players weren't surprised. They were positioned. That means they saw this coming weeks ago.
+## Scenario Analysis
 
-**Exhibit C: The Silence**
-Notice who's NOT talking about ${trend}. The people who usually have the loudest opinions are suspiciously quiet. In politics, that's called "having inside information." In markets, it's called "positioning."
+### Path A: Controlled Resolution — 35% probability
+${trend} follows the standard arc: peak, plateau, fade. The status quo absorbs the disruption. This is the baseline assumption most observers are pricing in.
 
-## Scenario Modeling
+### Path B: Compounding Escalation — 45% probability
+${related} amplifies the original signal. The conversation shifts fundamentally within 30 days. **Historical pattern matching favours this outcome.**
 
-<!-- IMG: cartoon fork in the road, three colorful paths diverging, ${trend} theme, signposts with question marks, whimsical illustration -->
+### Path C: The ${crossover} Inflection — 20% probability
+An exogenous variable reshapes the situation entirely. Low likelihood, high impact — the asymmetric scenario that prudent analysis cannot ignore.
 
-### Path A: The Controlled Landing (35% probability)
-${trend} peaks, plateaus, resolves. Headlines move on. Everyone forgets. This is the boring outcome and the one most people are pricing in.
+## Signal vs. Noise
 
-### Path B: The Escalation (45% probability)
-The situation compounds. ${related} amplifies the original signal. By month-end, we're having a completely different conversation. **This is the most likely path based on historical pattern matching.**
+- **Signal:** Institutional behaviour — track what they do, not what they say
+- **Signal:** ${related} as a leading indicator
+- **Noise:** High-volume social media reaction (engagement does not equal insight)
+- **Noise:** Consensus expert predictions (often repackaged conventional wisdom)
 
-### Path C: The ${crossover} Twist (20% probability)
-Something nobody expects changes the game entirely. Low probability, but the impact is so high that ignoring it is irresponsible.
+## Assessment
 
-## The Signal vs. Noise Cheatsheet
+**${title}** is not a hypothetical to dismiss — it is a scenario to prepare for. Early positioning consistently outperforms late reaction. The evidence points somewhere worth watching.
 
-- **Signal:** Watch institutional behavior, not retail commentary
-- **Signal:** Track ${related} — it's the leading indicator
-- **Noise:** Social media outrage (high volume, low information)
-- **Noise:** "Expert" predictions that are just repackaged consensus
-
-## Bottom Line
-
-**${title}** isn't a question to dismiss. It's a question to prepare for. The evidence is pointing somewhere interesting, and the people who looked early always do better than the people who looked late.
-
-*What's your assessment? The poll below is anonymous. Be honest.*`;
+*Share your assessment below. Anonymous aggregate predictions often outperform individual expert forecasts.*`;
 }
 
 function generateVersus(title: string, trend: string, category: string, related: string, crossover: string): string {
-  return `## ⚔️ THE GREAT DEBATE
+  return `## The Divide
 
-<!-- IMG: cartoon two groups debating about ${trend}, one side with fire emoji energy, other side cool and calm, versus battle illustration, vibrant colors -->
+**${title}** — expert opinion is split, public sentiment is polarised, and the data supports credible arguments on both sides. Here is a structured breakdown of each position.
 
-Two sides. One ${trend}. Zero consensus. Let's settle this like adults (who are also slightly competitive about being right).
+## The Case for Structural Change
 
-**${title}** — the internet is split, the experts disagree, and your group chat has devolved into voice notes. Let's bring some structure to the chaos.
+Proponents argue that ${trend} represents a generational shift rather than a cyclical event. The evidence:
 
-## Team "This Changes Everything" 🔥
+- **Historical pattern:** The last time a ${category} situation exhibited this exact trajectory, the aftermath reshaped the landscape for years.
+- **The ${crossover} factor:** ${related} is the variable that transforms ${trend} from a headline into a structural story — much like the pivotal turn in ${crossover}.
+- **Persistence metric:** Events that sustain this level of engagement for this duration resolve as the "it'll blow over" camp expects only 27% of the time.
 
-**The Bull Case in 60 Seconds:**
+## The Case for Mean Reversion
 
-They're saying ${trend} is a generational shift. Not a blip. Not a cycle. A *shift*. And honestly? The evidence isn't terrible:
+Sceptics counter with equally compelling points:
 
-- **Historical rhyme:** The last time a ${category} situation had this exact pattern? 2008. And we all know what happened next.
-- **The ${crossover} factor:** Like the twist in ${crossover} that recontextualized everything before it — ${related} is the piece that makes ${trend} make sense.
-- **The momentum math:** When something trends this hard for this long, the "it'll blow over" crowd has a 73% loss rate. We checked.
+- **Recency bias:** Most events that feel unprecedented have historical analogues. The base rate for genuine paradigm shifts is lower than it feels in the moment.
+- **Algorithmic amplification:** ${trend} is trending in part because controversy drives engagement. The signal may be weaker than the volume suggests.
+- **Statistical base rates:** Roughly 85% of "everything changes" events settle back toward the prior trajectory within 90 days.
 
-## Team "Calm Down, It's Not That Deep" 🧊
+## Side-by-Side Assessment
 
-**The Bear Case in 60 Seconds:**
+| Factor | Change Thesis | Stability Thesis |
+|--------|--------------|-----------------|
+| Data support | Strong | Moderate |
+| Historical precedent | Mixed | Favoured |
+| Expert consensus | Divided | Divided |
+| Institutional positioning | Active | Wait-and-see |
 
-They're saying you're all overreacting. And honestly? Their evidence isn't terrible either:
+## The Middle Ground
 
-- **Recency bias is real:** We think everything that happens to us is unprecedented. It usually isn't.
-- **The engagement trap:** ${trend} is trending because it's *designed* to trend. Controversy is an algorithm, not an insight.
-- **Base rates:** 85% of "this changes everything" moments... don't change everything. The boring outcome is boring, but it's also statistically dominant.
+The most likely outcome may be partial: ${trend} alters specific dimensions meaningfully while leaving others largely unchanged. The ${crossover} parallel applies — the real shift is not that one side prevails, but that the debate itself permanently recalibrates both positions.
 
-## The Scoreboard
-
-| Factor | Team Change | Team Calm |
-|--------|-----------|-----------|
-| Data support | ✅ Strong | ⚠️ Moderate |
-| Historical precedent | ⚠️ Mixed | ✅ Favored |
-| Expert consensus | ❌ Split | ❌ Split |
-| Vibes | 🔥 Electric | 🧊 Rational |
-| Your uncle's opinion | 🗣️ VERY strong | 😤 "Everyone's wrong" |
-
-## The Uncomfortable Middle Ground
-
-<!-- IMG: cartoon handshake between fire and ice characters, ${trend} fusion, compromise illustration, warm and cool colors meeting, editorial style -->
-
-What if both sides are right? ${trend} changes some things dramatically and leaves others completely untouched. Not as satisfying as picking a side, but probably the most accurate prediction.
-
-The **${crossover}** lesson: the twist isn't that one side wins. It's that the battle itself changes both sides permanently.
-
-*Pick your side. Vote below. We'll revisit this in 30 days and see who was right.*`;
+*Where do you stand? Cast your prediction below. We revisit in 30 days.*`;
 }
 
 function generatePrediction(title: string, trend: string, _category: string, related: string, crossover: string): string {
-  return `## 🎯 PREDICTION MARKET: OPEN
+  return `## Prediction Market
 
-<!-- IMG: cartoon crystal ball showing ${trend}, fortune teller with colorful predictions swirling around, vibrant editorial illustration -->
+**${trend}** has reached an inflection point. The signals are mixed, the expert consensus is unusually fragmented, and the next 72 hours will likely determine which trajectory holds.
 
-**${title}**
+## Why the Timing Matters
 
-Enough commentary. Enough analysis. Let's put our predictions where our opinions are.
+A week ago, this question was premature. A week from now, it becomes hindsight. The current moment sits at the point of maximum uncertainty — and maximum informational value.
 
-## The Setup
+- **${related}** is sending contradictory signals across different timeframes
+- Expert commentary has shifted from confident to hedged — a historically reliable indicator of genuine uncertainty
+- Public sentiment is split close to 50-50, which in comparable situations has favoured the minority position
 
-**${trend}** has reached the inflection point. The next 72 hours will determine which timeline we're in. And like any good **${crossover}** moment, the options aren't "good" or "bad" — they're "interesting in different ways."
+## Key Metrics
 
-## Why This Prediction Matters Right Now
+- **67%** of analogous situations resolved within 14 days of reaching this engagement threshold
+- **${related}** correlation with ${trend} is at its highest point in the dataset
+- The gap between stated expert confidence and actual positioning is widening — a pattern also seen in the **${crossover}** parallel
 
-Timing is everything. Ask this question last week, it's premature. Ask it next week, it's hindsight. But right now?
+## The Forecasting Principle
 
-- The signals are mixed (${related} is sending contradictory data)
-- The experts are hedging (never a good sign for "experts")
-- The crowd is split almost exactly 50-50 (which historically means the minority will be proven right)
+Research on superforecasting consistently shows that the best predictors share one trait: they update beliefs based on evidence rather than anchoring to initial positions.
 
-## The Stakes: By The Numbers
+Given the current state of ${trend}, the movement in ${related}, and the broader context — what is the most probable outcome?
 
-- **4.2M** people are actively tracking ${trend} right now
-- **67%** of previous similar situations resolved within 14 days
-- **$0** — what it costs you to have an opinion, but **a lot** — what it costs to have the wrong one too late
-
-## The Prediction Framework
-
-Don't overthink this. The best predictors in the world (superforecasters, as the research calls them) share one trait: they update their beliefs based on evidence, not ego.
-
-So: given what you know RIGHT NOW about ${trend}, ${related}, and the general vibes of 2026 — what happens?
-
-*Cast your vote. This is collective intelligence in action. Each prediction makes the aggregate smarter.*`;
+*Your prediction contributes to a collective intelligence model. Aggregate forecasts consistently outperform individual expert calls.*`;
 }
 
 function generateTimeline(title: string, trend: string, _category: string, related: string, crossover: string): string {
-  return `## ⏰ THE TIMELINE: How ${trend} Plays Out
+  return `## Projected Timeline
 
-<!-- IMG: cartoon timeline with ${trend}, milestones marked with colorful flags and icons, path from present to future, whimsical illustration -->
+Major events follow recognisable patterns. The ${trend} trajectory has been mapped against comparable situations from the past decade, drawing on the **${crossover}** framework for structural parallels.
 
-Every big moment follows a pattern. Here's the ${trend} timeline mapped against every similar situation in the last decade — with a ${crossover} twist.
+## Week 1: Critical Mass
+*Current phase.*
 
-## Week 1: The Spark 🔥
-*Where we are now.*
+${trend} has crossed from niche awareness into mainstream discourse. At this stage, the signal-to-noise ratio is at its lowest — approximately 70% of circulating commentary is reactive rather than analytical.
 
-${trend} hits critical mass. Social media goes from "did you see this?" to "everyone has an opinion." The signal-to-noise ratio drops to approximately 0.3 (translation: 70% of what you're reading is hot air).
+**Key indicator:** ${related}. Movement in this variable historically marks the transition from speculation to positioning.
 
-**Key indicator to watch:** ${related}. When this moves, the real game starts.
+## Week 2-3: Institutional Response
 
-## Week 2-3: The Scramble 🏃
-*Where the smart money moves.*
+The initial reaction phase ends. What follows is typically invisible to the general public: institutional repositioning, strategic communication shifts, and capital reallocation.
 
-The initial takes are in. Now comes the part most people miss: the quiet repositioning. Institutions, brands, and power players start making moves that won't be visible for another month.
+**Historical pattern:** In 78% of comparable situations, the most consequential moves occurred in week two, not week one. The initial headline is the catalyst; the response is the substance.
 
-**Historical pattern:** In 78% of similar situations, the biggest move happened in week 2, not week 1. The headline is the appetizer. The response is the meal.
+## Month 1-2: Structural Revelation
 
-## Month 1-2: The Reveal 🎭
+The true scope of ${trend} becomes measurable. Early movers are validated; late responders face asymmetric costs.
 
-<!-- IMG: cartoon dramatic reveal moment, curtain being pulled back on ${trend}, surprised audience, ${crossover} style dramatic scene, colorful illustration -->
+Two trajectories emerge:
+- **Stabilisation:** The situation resolves into a new equilibrium — different from the prior state, but manageable. Adjustment is required but contained.
+- **Second-order effects:** Consequences that were not mapped in the initial analysis phase surface, driven by the interaction between ${trend} and ${related}.
 
-*The ${crossover} moment.*
+## Month 3-6: The Settled Landscape
 
-This is where it gets interesting. The true impact of ${trend} becomes undeniable. The people who moved early look prescient. The people who waited look... late.
+The news cycle has moved on, but the structural changes triggered by ${trend} persist. The trending topic was temporary; the shift it catalysed is not.
 
-**The fork in the road:**
-- **Path A:** The situation stabilizes into a new normal. Not the old normal. A new one. Adjustment required.
-- **Path B:** A second wave of consequences that nobody mapped because everyone was focused on the first-order effects.
+**The consistent lesson across every analogous event:** Those who distinguished between the headline and the underlying shift gained a meaningful advantage — typically measured in months, not days.
 
-## Month 3-6: The New Normal 📊
-*Where the dust settles.*
+## Your Assessment
 
-The conversation has moved on. ${trend} is no longer trending. But the changes it triggered? Still very much in effect. The world is measurably different, even if the headlines have moved to the next thing.
+**${title}** — at which point on this timeline does the highest-impact decision need to be made?
 
-**The lesson that applies every single time:** The trending topic is temporary. The structural change is permanent. The people who understood the difference had a 6-month head start.
-
-## Your Position
-
-**${title}** — knowing this timeline, where do you place your bet? Early, late, or "I'll sit this one out"?
-
-*The best time to have an opinion was week 1. The second best time is now. Vote below.*`;
+*Your prediction below contributes to the collective forecast model.*`;
 }
 
 // ── Outcome sets — named like movie tropes ──

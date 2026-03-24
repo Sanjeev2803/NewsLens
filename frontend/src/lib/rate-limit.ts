@@ -68,7 +68,8 @@ function getCounter(counter: WindowCounter, now: number): WindowCounter {
 }
 
 const CLEANUP_KEY = "__newslens_ratelimit_cleanup";
-if (!(globalThis as any)[CLEANUP_KEY]) {
+if ((globalThis as any)[CLEANUP_KEY]) clearInterval((globalThis as any)[CLEANUP_KEY]);
+{
   (globalThis as any)[CLEANUP_KEY] = setInterval(() => {
     const now = Date.now();
     for (const [ip, counter] of ipCounters) {
