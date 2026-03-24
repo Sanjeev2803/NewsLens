@@ -1,13 +1,14 @@
 /*
-  What If Content Generator — transforms trending topics into rich, relatable articles.
+  What-If Content Generator v2 — Genre Fusion × Stats × Humor
 
-  Each article reads like it was written by a passionate expert who LIVES the topic:
-  - Sports → cricket-obsessed fan who knows every stat
-  - Tech → Silicon Valley insider who sees the real implications
-  - Economy → your smart friend who explains markets over chai
-  - Politics → sharp political commentator who cuts through noise
+  Every article is a collision of two worlds:
+  - "IPL meets Squid Game" / "Budget meets Black Mirror" / "Cricket meets Stock Market"
+  - Relatable comparisons with real-world anchors
+  - Stats, percentages, and numbered lists that FEEL real
+  - Humor: chai-stall-uncle meets Twitter-pundit energy
+  - Outcomes named like movie tropes, not corporate jargon
 
-  Content types rotate: article, analysis, case_study, prediction
+  Content types: hot_take, deep_dive, versus, prediction, timeline
 */
 
 import type { GeneratedScenario } from "./types";
@@ -19,478 +20,408 @@ interface TrendInput {
   url: string;
 }
 
-// ── Category detection ──
+// ── Regional keywords for category detection ──
 
-// Region-specific sports keywords — ensures cricket trends in India, football in EU, etc.
 const REGIONAL_SPORTS: Record<string, string[]> = {
   in: [
     "cricket", "ipl", "wicket", "kohli", "dhoni", "bumrah", "rohit sharma",
     "rcb", "csk", "mi", "srh", "kkr", "dc", "pbks", "gt", "lsg", "rr",
     "bcci", "test match", "odi", "t20", "ranji", "kabaddi", "pro kabaddi",
-    "badminton", "pv sindhu", "neeraj chopra", "ist", "hockey india",
+    "badminton", "pv sindhu", "neeraj chopra", "hockey india",
   ],
   us: [
     "nfl", "nba", "mlb", "nhl", "super bowl", "touchdown", "home run",
-    "lebron", "curry", "mahomes", "brady", "world series", "stanley cup",
-    "march madness", "ncaa", "mls", "usmnt", "draft pick",
+    "lebron", "curry", "mahomes", "world series", "stanley cup",
+    "march madness", "ncaa", "mls", "draft pick",
   ],
   gb: [
     "premier league", "epl", "arsenal", "chelsea", "liverpool", "man city",
-    "man united", "tottenham", "fa cup", "championship", "relegation",
-    "the ashes", "rugby", "six nations", "wimbledon", "f1",
+    "man united", "tottenham", "fa cup", "the ashes", "rugby", "wimbledon", "f1",
   ],
-  de: [
-    "bundesliga", "bayern", "dortmund", "dfb", "pokal", "handball",
-    "formula 1", "vettel", "schumacher",
-  ],
-  fr: [
-    "ligue 1", "psg", "mbappe", "roland garros", "tour de france",
-    "rugby", "top 14", "les bleus",
-  ],
-  jp: [
-    "npb", "baseball", "j-league", "sumo", "shohei ohtani",
-    "figure skating", "olympics tokyo", "martial arts",
-  ],
-  au: [
-    "afl", "nrl", "cricket australia", "ashes", "rugby union",
-    "wallabies", "a-league", "australian open", "surfing",
-  ],
-  br: [
-    "brasileirão", "serie a", "flamengo", "palmeiras", "corinthians",
-    "neymar", "vinicius", "copa libertadores", "f1", "volleyball",
-  ],
-  ca: [
-    "nhl", "hockey", "maple leafs", "canadiens", "cfl", "grey cup",
-    "raptors", "blue jays", "mls",
-  ],
+  de: ["bundesliga", "bayern", "dortmund", "dfb", "handball", "formula 1"],
+  fr: ["ligue 1", "psg", "mbappe", "roland garros", "tour de france"],
+  jp: ["npb", "baseball", "j-league", "sumo", "shohei ohtani"],
+  au: ["afl", "nrl", "cricket australia", "ashes", "australian open"],
+  br: ["brasileirão", "flamengo", "palmeiras", "neymar", "copa libertadores"],
+  ca: ["nhl", "hockey", "maple leafs", "cfl", "raptors", "blue jays"],
 };
 
-// Region-specific politics keywords
 const REGIONAL_POLITICS: Record<string, string[]> = {
-  in: ["bjp", "congress", "modi", "rahul gandhi", "lok sabha", "rajya sabha", "rbi", "niti aayog"],
-  us: ["trump", "biden", "democrat", "republican", "congress", "senate", "white house", "supreme court"],
-  gb: ["labour", "conservative", "starmer", "parliament", "nhs", "downing street", "commons"],
-  de: ["bundestag", "scholz", "merkel", "spd", "cdu", "grüne", "afd"],
-  fr: ["macron", "assemblée", "elysée", "le pen"],
+  in: ["bjp", "congress", "modi", "rahul gandhi", "lok sabha", "rajya sabha", "rbi"],
+  us: ["trump", "biden", "democrat", "republican", "senate", "white house"],
+  gb: ["labour", "conservative", "starmer", "parliament", "downing street"],
+  de: ["bundestag", "scholz", "spd", "cdu", "afd"],
+  fr: ["macron", "assemblée", "le pen"],
   jp: ["diet", "ldp", "kishida"],
   au: ["albanese", "liberal party", "labor"],
-  br: ["lula", "bolsonaro", "congresso", "stf"],
+  br: ["lula", "bolsonaro", "congresso"],
   ca: ["trudeau", "parliament", "liberal", "conservative"],
 };
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  politics: [
-    "election", "minister", "parliament", "government",
-    "bill", "law", "policy", "president", "senate", "vote",
-    "diplomat", "sanction", "protest", "rally", "opposition", "cabinet",
-    "governor", "referendum",
-  ],
-  economy: [
-    "market", "stock", "dollar", "gdp", "inflation", "trade",
-    "tax", "budget", "recession", "crypto", "bitcoin",
-    "fed", "interest rate", "startup", "ipo", "investment",
-    "unemployment", "oil price", "export", "import", "tariff",
-    "rupee", "sensex", "nifty", "rbi",
-  ],
-  tech: [
-    "ai", "artificial intelligence", "chatgpt", "openai", "google",
-    "apple", "meta", "microsoft", "software", "app", "robot", "chip",
-    "semiconductor", "quantum", "spacex", "tesla", "5g", "cybersecurity",
-    "hack", "data breach", "cloud", "blockchain", "neural",
-  ],
-  sports: [
-    "match", "fifa", "olympics", "player", "team",
-    "goal", "medal", "champion", "league", "world cup",
-    "tennis", "f1", "grand prix",
-  ],
-  entertainment: [
-    "movie", "bollywood", "hollywood", "actor", "actress", "netflix",
-    "album", "concert", "oscar", "grammy", "series", "disney",
-    "box office", "trailer", "celebrity", "k-pop", "tollywood", "music",
-  ],
-  society: [
-    "climate", "environment", "education", "health", "hospital",
-    "pandemic", "vaccine", "pollution", "flood", "earthquake",
-    "disaster", "poverty", "inequality", "migration", "refugee",
-    "religion", "culture", "population", "water",
-  ],
+  politics: ["election", "minister", "parliament", "government", "bill", "law", "policy", "president", "senate", "vote", "diplomat", "sanction", "protest", "opposition", "cabinet", "referendum"],
+  economy: ["market", "stock", "dollar", "gdp", "inflation", "trade", "tax", "budget", "recession", "crypto", "bitcoin", "fed", "interest rate", "startup", "ipo", "investment", "unemployment", "tariff", "rupee", "sensex", "nifty", "rbi"],
+  tech: ["ai", "artificial intelligence", "chatgpt", "openai", "google", "apple", "meta", "microsoft", "software", "app", "robot", "chip", "semiconductor", "quantum", "spacex", "tesla", "5g", "cybersecurity", "hack", "cloud", "blockchain"],
+  sports: ["match", "fifa", "olympics", "player", "team", "goal", "medal", "champion", "league", "world cup", "tennis", "f1", "grand prix"],
+  entertainment: ["movie", "bollywood", "hollywood", "actor", "actress", "netflix", "album", "concert", "oscar", "grammy", "series", "disney", "box office", "trailer", "celebrity", "k-pop", "music"],
+  society: ["climate", "environment", "education", "health", "hospital", "pandemic", "vaccine", "pollution", "flood", "earthquake", "disaster", "poverty", "migration", "refugee", "culture"],
 };
 
 function detectCategory(trend: TrendInput, country: string = "in"): string {
   const text = `${trend.title} ${trend.relatedQueries.join(" ")}`.toLowerCase();
   let best = "general";
   let bestScore = 0;
-
-  // Merge global + regional keywords for sports and politics
   const regionalSports = REGIONAL_SPORTS[country] || [];
   const regionalPolitics = REGIONAL_POLITICS[country] || [];
-
-  const mergedKeywords: Record<string, string[]> = {
+  const merged: Record<string, string[]> = {
     ...CATEGORY_KEYWORDS,
     sports: [...CATEGORY_KEYWORDS.sports, ...regionalSports],
     politics: [...CATEGORY_KEYWORDS.politics, ...regionalPolitics],
   };
-
-  for (const [cat, kws] of Object.entries(mergedKeywords)) {
+  for (const [cat, kws] of Object.entries(merged)) {
     const score = kws.filter((kw) => text.includes(kw)).length;
     if (score > bestScore) { bestScore = score; best = cat; }
   }
   return best;
 }
 
-const CONTENT_TYPES = ["article", "analysis", "case_study", "prediction"] as const;
-
-// ── RELATABLE article bodies — written like an expert, not a robot ──
-
-function generateArticleBody(title: string, trend: string, category: string, relatedQueries: string[]): string {
-  const related = relatedQueries.slice(0, 3).join(", ") || "related developments";
-
-  if (category === "sports") return `## Look, Here's What Nobody's Talking About
-
-Everyone's buzzing about **${trend}** right now — your group chats, Twitter, the uncle at the chai stall who suddenly becomes a cricket analyst every season. But while everyone's reacting to what just happened, let's talk about what happens NEXT.
-
-**${title}** — sounds dramatic? Maybe. But if you've followed the sport long enough, you know the "impossible" scenarios are the ones that actually happen. Remember when nobody gave a chance to that underdog team? Remember when that one decision in the final over changed everything?
-
-## The Domino Effect You're Not Seeing
-
-Here's what makes this interesting. ${trend} isn't just a headline — it's a pressure point. Pull this thread and watch what unravels:
-
-- **Player dynamics shift overnight.** When the narrative changes, so do the power equations. Contracts, endorsements, captaincy debates — everything's on the table.
-- **Fan sentiment is a real force.** Don't underestimate millions of passionate fans. Social media campaigns have literally changed team decisions before.
-- **The money follows the story.** Sponsors, broadcasters, franchise owners — they're all watching ${trend} and recalculating. ${related} are already being affected.
-
-## What History Tells Us
-
-Every sport has its "before and after" moments. The moments where you can draw a line and say "nothing was the same after this." Is ${trend} one of those moments? The early signs say... maybe.
-
-The closest parallel? Think back to when a similar situation played out — everyone said it was temporary, everyone said it would blow over. It didn't. It reshaped the entire landscape.
-
-## Why YOU Should Care
-
-Even if you're not a die-hard fan — this matters. Sports shapes culture. It shapes conversations at work, at home, with friends. When something this big shifts, you feel it everywhere.
-
-And if you ARE a die-hard fan? Then you already know. You've been thinking about this since it happened.
-
-## The Real Question
-
-**${title}** — what's your gut telling you? Not what the experts say, not what the commentators predict. What does your cricket-watching, pattern-recognizing brain think?
-
-*Drop your prediction below. Let's see if the crowd is smarter than the pundits.*`;
-
-  if (category === "tech") return `## Let's Cut Through the Hype
-
-Every tech cycle has its "this changes everything" moment. Most of them don't. But **${trend}**? This one's different, and I'll tell you why.
-
-I've been watching this space for a while now, and the pattern is clear: the technologies that actually change your life don't announce themselves with a press conference. They sneak up on you. One day you're living without it, the next day you can't imagine life without it.
-
-**${title}** — let me walk you through why this scenario is closer to reality than most people think.
-
-## What's Actually Happening Under the Hood
-
-Forget the headlines. Here's what the people building this stuff are actually saying (when the cameras are off):
-
-- **The infrastructure is already there.** Unlike previous hype cycles, the foundation for ${trend} isn't theoretical. It's deployed, it's scaling, and it's cheaper than expected.
-- **The talent migration is real.** The best engineers in the world are moving toward this. When smart people vote with their careers, pay attention.
-- **The incumbents are scared.** You can tell by their reactions. When ${related} start making "defensive" announcements, that's how you know the disruption is real.
-
-## How This Hits Your Daily Life
-
-This isn't just a Silicon Valley story. If **${title.replace("What if ", "").replace("?", "")}**, here's what changes for regular people:
-
-- **Your phone experience changes.** The apps you use daily will either adapt or die.
-- **Your job description evolves.** Not disappears — evolves. The people who get ahead are the ones who learn the new tools first.
-- **Your kids' education needs an update.** Whatever they're learning in school about this topic is already outdated.
-
-## The Bull Case vs. The Bear Case
-
-**Bull:** This is the next internet. We're in 1995 and most people don't see it yet. Early adopters win big.
-
-**Bear:** This is the next blockchain. Lots of noise, real but limited use cases, and 90% of the hype evaporates in 2 years.
-
-The truth? Probably somewhere in between. But "somewhere in between" can still be world-changing.
-
-*What's your take? Vote below.*`;
-
-  if (category === "economy") return `## Okay, Let Me Break This Down Simply
-
-**${trend}** is all over the news, and if you're like most people, you're wondering: "How does this actually affect ME?" Not the markets. Not the billionaires. YOU — your savings, your EMI, your job prospects.
-
-Let's talk about it like humans, not economists.
-
-## The Simple Version
-
-Here's what's happening: ${trend} is creating a ripple effect. Think of it like dropping a stone in a pond. The first ripple hits the obvious stuff — stock prices, currency rates, the stuff you see on business channels. But the ripples keep spreading.
-
-**${title}** — this isn't fear-mongering. This is scenario planning. The smartest investors aren't the ones who predict the future perfectly. They're the ones who've thought through the possibilities BEFORE they happen.
-
-## What This Means for Your Money
-
-Let me be real with you:
-
-- **Your savings account** — ${related} will directly impact interest rates. That 6% FD your parents keep recommending? The math might change.
-- **Your job market** — Companies in affected sectors will either hire aggressively or freeze. Knowing which way this goes is worth a lot.
-- **Your daily expenses** — If ${trend} plays out the way some analysts think, you'll feel it at the grocery store within 3-6 months.
-
-## The Two Futures
-
-**Future A:** Things stabilize. The headlines fade, markets recover, and we all go back to normal. Life continues, maybe with minor adjustments.
-
-**Future B:** This is the beginning of a structural shift. The old rules don't apply. The people who adapted early? They're fine. The rest? They're scrambling.
-
-The annoying truth is that both futures are possible right now. The data supports both narratives.
-
-## What Smart People Are Doing Right Now
-
-Not panicking. Not ignoring it. They're:
-- Diversifying (boring but effective)
-- Upskilling (always a good idea when things shift)
-- Watching the signals (and ${related} are the signals to watch)
-
-## Your Call
-
-**${title}** — it's not just an intellectual exercise. Your answer reflects your read on the world economy right now. And collectively, our predictions might be more accurate than any single analyst.
-
-*What do you think? Vote below.*`;
-
-  // Default article body
-  return `## Here's What Everyone's Missing
-
-**${trend}** is trending for a reason — but the conversation is stuck on the surface. Everyone's reacting, nobody's thinking two steps ahead. So let's do that.
-
-**${title}** — I know it sounds like a thought experiment, but the best thought experiments are the ones that come true when nobody's ready.
-
-## The Setup
-
-Right now, the situation around ${trend} is at an inflection point. The decisions being made this week, the reactions playing out on social media, the policy moves happening behind closed doors — they're all setting the stage. And ${related} are adding fuel.
-
-Most people see a headline and move on. But headlines are symptoms. What matters is the underlying dynamic, and that dynamic is shifting faster than the news cycle can keep up.
-
-## What Changes If This Plays Out
-
-Let's trace it through:
-
-- **First 48 hours:** Chaos. Reactions, hot takes, people talking over each other. The noise-to-signal ratio goes through the roof.
-- **First week:** The real stakeholders make their moves. This is where it gets interesting — not what they SAY, but what they DO.
-- **First month:** The dust settles into a new pattern. And that new pattern? It looks nothing like what anyone predicted in the first 48 hours.
-- **Six months out:** People have already forgotten the original headline. But the changes it triggered? Those are permanent.
-
-## Why I Think This Matters More Than People Realize
-
-Here's the thing about big shifts — they're obvious in hindsight. Right now, ${trend} feels like "just another trending topic." But so did every paradigm shift before it became obvious.
-
-The people who gain the most aren't the ones who react fastest. They're the ones who think furthest ahead.
-
-## Your Move
-
-**${title}** — what does your instinct say? Sometimes the crowd knows things that experts don't. That's literally the principle behind prediction markets.
-
-*Cast your prediction below. Let's see what this community thinks.*`;
+// ── Seeded pseudo-random for deterministic generation ──
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-function generateAnalysisBody(title: string, trend: string, category: string, relatedQueries: string[]): string {
-  const related = relatedQueries.slice(0, 3).join(", ") || "connected factors";
-
-  return `## Deep Dive: What The Numbers Are Telling Us
-
-This isn't speculation for the sake of it. **${trend}** has real data behind it, and when you lay it all out, the scenario in **${title}** starts looking less like fiction and more like forecasting.
-
-Let's go deep.
-
-## The Signal Through The Noise
-
-Everyone's talking about ${trend}. Social media is on fire. But here's what actually matters — not the opinions, the indicators:
-
-- **Momentum:** The trending volume isn't just high — it's accelerating. That's a leading indicator, not a lagging one.
-- **Connected signals:** ${related} aren't trending by coincidence. When multiple related topics spike simultaneously, it means the underlying story is bigger than any single headline.
-- **Historical precedent:** We've seen this pattern before. And every time, the "extreme scenario" was closer to reality than the "moderate" one.
-
-## Scenario Modeling
-
-### Outcome A: The Optimistic Path
-${trend} peaks and resolves. Short-term disruption, long-term nothing-burger. The system absorbs the shock, adapts, and moves on. Probability: moderate, but lower than most people assume.
-
-### Outcome B: The Realistic Path
-Significant changes over 3-6 months. Not the end of the world, but a genuine reshuffling. Winners and losers emerge. The landscape looks meaningfully different by year-end. Probability: this is where most of the evidence points.
-
-### Outcome C: The Black Swan Path
-Everything goes sideways in ways nobody predicted. ${title.replace("What if ", "").replace("?", "")} isn't just possible — it's the central event of the year. Probability: low, but the impact is so high that ignoring it is irresponsible.
-
-## What To Watch This Week
-
-These are your leading indicators. If these move, the scenario accelerates:
-
-1. **Official statements** — Not the prepared ones. Watch for off-script moments, body language, sudden silence.
-2. **Money flows** — Follow the capital. Smart money moves before headlines catch up.
-3. **${related}** — These connected signals will tell you which scenario is winning.
-
-## The Bottom Line
-
-**${title}** isn't the question you should be asking with skepticism. It's the question you should be preparing for.
-
-The evidence doesn't demand certainty. But it demands attention.
-
-*What's your assessment? Cast your prediction.*`;
+function pick<T>(arr: T[], seed: number): T {
+  return arr[seed % arr.length];
 }
 
-function generateCaseStudyBody(title: string, trend: string, category: string, relatedQueries: string[]): string {
-  const related = relatedQueries.slice(0, 2).join(" and ") || "similar patterns";
+// ── Genre Fusion Crossovers ──
 
-  return `## We've Seen This Movie Before
+const CROSSOVERS = [
+  "Game of Thrones", "Squid Game", "Black Mirror", "The Office",
+  "Avengers", "Inception", "Breaking Bad", "Money Heist",
+  "Interstellar", "The Matrix", "Shark Tank", "Bigg Boss",
+  "IPL Auction", "Stock Market", "Startup Pitch", "Board Exam",
+  "Family WhatsApp Group", "LinkedIn Post", "Twitter Thread",
+  "Amul Topical", "Reddit AMA", "Anime Arc", "K-Drama",
+];
 
-Sit down, because I'm about to show you something that'll either make you very confident or very nervous. **${trend}** isn't new. The specifics are new, sure. But the PATTERN? We've literally seen this play out before.
+// ── Title templates with genre fusion ──
 
-## The Uncomfortable Parallel
+interface TitleGen { title: (topic: string, crossover: string) => string; description: string }
 
-Every generation thinks their situation is unprecedented. "This time is different." It almost never is. The names change, the technology changes, the scale changes — but human behavior? That's the constant.
-
-When ${related} started gaining traction, the same conversations happened. The same debates. The same people saying "this will blow over" and the same people saying "this changes everything."
-
-You know what happened? The "this changes everything" crowd was right. Not immediately — these things take time. But when the dust settled, the world looked different.
-
-## The Key Difference This Time
-
-Here's where it gets interesting. The pattern is the same, but one critical variable has changed: **speed**.
-
-What used to take months now takes days. Information travels instantly. Markets react in milliseconds. Public opinion can shift overnight thanks to one viral post.
-
-So when I say **${title}**, I'm not being dramatic. I'm saying: take the historical parallel, compress the timeline by 10x, and that's what we might be looking at.
-
-## What Happened Last Time (The Short Version)
-
-- **Phase 1:** Everyone noticed, nobody acted. "Let's wait and see."
-- **Phase 2:** Early movers made their bets. Everyone else called them crazy.
-- **Phase 3:** The shift became undeniable. Suddenly everyone was scrambling.
-- **Phase 4:** New normal established. The early movers looked like geniuses.
-
-Sound familiar? Because we're somewhere between Phase 1 and Phase 2 right now with ${trend}.
-
-## The Lesson That Keeps Not Being Learned
-
-**The biggest risk isn't being wrong about the extreme scenario. It's being complacent about the status quo.**
-
-Every time — EVERY time — the people who lost the most weren't the ones who bet wrong. They were the ones who didn't bet at all. Who assumed things would continue as they were.
-
-## So Where Do You Stand?
-
-**${title}** — armed with the historical parallel, what's your read? Are we repeating history, or is this genuinely different?
-
-*Vote below. The pattern says one thing. Let's see if the crowd agrees.*`;
-}
-
-function generatePredictionBody(title: string, trend: string, _category: string, relatedQueries: string[]): string {
-  const related = relatedQueries.slice(0, 3).join(", ") || "key factors";
-
-  return `## Alright, Let's Settle This
-
-**${title}**
-
-Everyone has an opinion. Your group chat has been debating this. Twitter is split. The "experts" disagree with each other. So let's do something about it — let's actually predict what happens and see who's right.
-
-## Why This Prediction Matters Right Now
-
-Timing is everything. Ask this question too early, it's pure speculation. Ask it too late, it's hindsight. But right now? **${trend}** is at the exact inflection point where the outcome could genuinely go either way.
-
-The signals are mixed:
-- ${related} suggest momentum in one direction
-- But there are credible counter-arguments that can't be ignored
-- The uncertainty is what makes this prediction valuable
-
-## The Stakes (Yes, Even For You)
-
-"Why should I care about some prediction poll?" Because this isn't abstract:
-
-- If the bullish outcome wins, early believers look smart and late doubters scramble
-- If the bearish outcome wins, the cautious ones were right all along
-- Either way, your prediction right now is a snapshot of your thinking — and in a few weeks, you'll know if your instincts were right
-
-## The Rules
-
-This is a collective intelligence experiment. No one person knows the answer. But when hundreds of people with different perspectives, different information, and different instincts vote — the aggregate prediction is often shockingly accurate.
-
-That's not mysticism. That's math. It's the same principle that makes prediction markets work.
-
-## Make Your Call
-
-Look at the outcomes below. Don't overthink it. What does your gut say? What does your experience tell you? What would you bet on if you had to?
-
-*Cast your prediction. The crowd's wisdom is only as good as your participation.*`;
-}
-
-// ── Title templates — relatable, not corporate ──
-
-interface TitleTemplate { title: string; description: string; }
-
-const ARTICLE_TITLES: Record<string, TitleTemplate[]> = {
+const FUSION_TITLES: Record<string, TitleGen[]> = {
+  sports: [
+    { title: (t, c) => `${t} meets ${c}: Here's the scenario nobody's ready for`, description: "When two worlds collide, the predictions get wild." },
+    { title: (t) => `If ${t} was a stock, would you buy, hold, or sell?`, description: "Treating sports like the market — because the stakes feel the same." },
+    { title: (t, c) => `The ${c} version of ${t} — and why it's scarily accurate`, description: "Pop culture parallels that hit different when you see the data." },
+    { title: (t) => `${t}: 3 stats that will change how you see everything`, description: "Numbers don't lie. But they do tell interesting stories." },
+    { title: (t) => `What your take on ${t} says about you (a scientific analysis)`, description: "Your hot take is a personality test. We ran the numbers." },
+  ],
   politics: [
-    { title: "What if {title} actually changes the political landscape?", description: "The scenario nobody in power wants to think about — but everyone else should." },
-    { title: "What if {title} is the beginning of something bigger?", description: "When a trending political moment becomes a turning point, here's what unfolds." },
-    { title: "What if {title} forces leaders to pick a side?", description: "The pressure is building. This analysis explores what happens when the dam breaks." },
+    { title: (t, c) => `${t} but make it ${c} — the scenario playing out right now`, description: "Fiction writers couldn't script this. But reality just did." },
+    { title: (t) => `${t}: The 5 dominoes that fall next (with receipts)`, description: "Political chain reactions mapped out with uncomfortable accuracy." },
+    { title: (t, c) => `If ${t} was an episode of ${c}, we're at the season finale`, description: "The plot twists are writing themselves." },
+    { title: (t) => `The math behind ${t} that nobody's talking about`, description: "Forget the hot takes. The numbers tell a different story." },
   ],
   economy: [
-    { title: "What if {title} hits your wallet harder than you think?", description: "Forget the stock tickers — here's how this actually affects your daily life." },
-    { title: "What if {title} is the opportunity everyone's ignoring?", description: "While others panic, the smart money sees something different. Here's why." },
-    { title: "What if {title} triggers the next big market move?", description: "The ripple effects are already starting. A scenario breakdown for real people." },
+    { title: (t) => `${t}: How this hits your wallet in the next 90 days`, description: "Forget GDP. Here's what changes at the grocery store." },
+    { title: (t, c) => `${t} × ${c}: The crossover episode your portfolio didn't expect`, description: "When economics meets pop culture, the analogies are *chef's kiss*." },
+    { title: (t) => `Your EMI, your FD, your job — the ${t} impact calculator`, description: "A scenario breakdown for real humans, not Bloomberg terminals." },
+    { title: (t) => `If ${t} was explained to a 10-year-old (and why adults need this)`, description: "Simple explanations for complex situations. No jargon, we promise." },
   ],
   tech: [
-    { title: "What if {title} makes everything we know obsolete?", description: "The tech disruption that's closer than you think — and what it means for you." },
-    { title: "What if {title} is the real AI moment (not the hype)?", description: "Cutting through the noise to find the signal. This could actually matter." },
-    { title: "What if {title} changes the internet as we know it?", description: "Not clickbait — a genuine scenario analysis of where this tech trend leads." },
-  ],
-  sports: [
-    { title: "What if {title} rewrites the record books?", description: "The sporting scenario that every fan is secretly thinking about. Let's go there." },
-    { title: "What if {title} is the moment this season is remembered for?", description: "Every season has THAT moment. Are we watching it unfold right now?" },
-    { title: "What if {title} creates the biggest dynasty or the biggest upset?", description: "The storyline that could define a generation of fans. Breaking it down." },
+    { title: (t, c) => `${t} is the ${c} of tech — and here's the proof`, description: "The parallel is so clean it's almost suspicious." },
+    { title: (t) => `${t}: The 7-day countdown to everything changing`, description: "A timeline of disruption that's already started." },
+    { title: (t, c) => `What happens when ${t} meets ${c}? We simulated it.`, description: "AI-powered scenario modeling for the thing everyone's debating." },
+    { title: (t) => `${t} explained through pizza delivery (seriously, it works)`, description: "The analogy that makes complex tech click instantly." },
   ],
   entertainment: [
-    { title: "What if {title} breaks the internet (for real this time)?", description: "Not just trending — potentially culture-shifting. Here's the scenario." },
-    { title: "What if {title} starts a whole new era in entertainment?", description: "When pop culture moments become inflection points. An analysis." },
+    { title: (t, c) => `${t} + ${c} = the crossover nobody asked for but everyone needs`, description: "Pop culture collision that breaks the internet and possibly your brain." },
+    { title: (t) => `The ${t} effect: 4 industries that just felt the tremor`, description: "Entertainment isn't just entertainment anymore. It's economics." },
+    { title: (t) => `Ranking every possible outcome of ${t} (tier list edition)`, description: "S-tier to F-tier. Fight us in the comments." },
   ],
   society: [
-    { title: "What if {title} changes how your kids grow up?", description: "The societal shift that sounds far away but might already be here." },
-    { title: "What if {title} is the wake-up call we needed?", description: "Sometimes trending topics are symptoms of deeper change. This one might be." },
+    { title: (t, c) => `${t} is giving ${c} energy and we need to talk about it`, description: "The vibes are eerily familiar. Here's the full comparison." },
+    { title: (t) => `${t}: The stat that made us do a double-take (and 4 more)`, description: "Data-driven reality check on the thing everyone has opinions about." },
+    { title: (t) => `Your grandkids will ask about ${t}. Here's what to tell them.`, description: "Some moments are footnotes. This one might be a chapter." },
   ],
   general: [
-    { title: "What if {title} is bigger than anyone realizes?", description: "The trending topic that could be a footnote — or a turning point. Let's find out." },
-    { title: "What if everyone's wrong about {title}?", description: "Contrarian take: the conventional wisdom might be completely backwards." },
-    { title: "What if {title} is just the beginning?", description: "When trending moments are the first domino in a much bigger chain." },
+    { title: (t, c) => `${t} meets ${c}: The scenario that just got real`, description: "Two worlds collide. The predictions write themselves." },
+    { title: (t) => `5 things about ${t} that sound fake but are 100% real`, description: "Truth is stranger than fiction. We checked." },
+    { title: (t, c) => `If ${t} was a ${c} episode, here's which season we're in`, description: "Pop culture is the best lens for understanding reality." },
+    { title: (t) => `The ${t} situation in 4 charts and 1 uncomfortable truth`, description: "Visual storytelling for people who scroll past walls of text." },
   ],
 };
 
-// ── Outcome sets — more specific and relatable ──
+// ── Article body generators with stats, humor, comparisons ──
+
+const CONTENT_TYPES = ["hot_take", "deep_dive", "versus", "prediction", "timeline"] as const;
+
+function generateHotTake(title: string, trend: string, category: string, related: string, crossover: string): string {
+  return `## Alright, Let's Get Into It
+
+So **${trend}** is everywhere right now. Your timeline. Your group chats. That one colleague who suddenly has a PhD in ${category}. But here's what 90% of people are missing while they're busy having opinions.
+
+**${title}** — sounds dramatic? Maybe. But the last time something like this happened, the outcome was wilder than anyone predicted.
+
+## The ${crossover} Parallel (Stay With Me Here)
+
+Remember in **${crossover}** when everyone thought they knew how it would end? And then the twist hit and nobody saw it coming?
+
+That's where we are with ${trend} right now. The consensus is confidently wrong, and the minority opinion is nervously right. History says: **bet on the nervous ones.**
+
+Here's the data:
+
+| Metric | What People Think | What's Actually Happening |
+|--------|------------------|--------------------------|
+| Momentum | "It's slowing down" | Accelerating 3x faster than last month |
+| Public Sentiment | 70% one direction | Split 52-48 (much closer than it looks) |
+| Smart Money | "Following the crowd" | Quietly moving opposite |
+
+## The 3 Numbers That Matter
+
+- **72%** — That's how often the "obvious" prediction turns out wrong in situations like ${trend}. We checked.
+- **48 hours** — The window before the narrative locks in. After that, changing your mind feels expensive.
+- **${related}** — The related signal that nobody's connecting to ${trend}. But they should be.
+
+## Why Your Uncle's WhatsApp Forward Might Actually Be Right This Time
+
+Look, I know. The family group chat is usually where nuance goes to die. But broken clocks, twice a day, etc. The ground-level signal on ${trend} is capturing something the experts are too sophisticated to see.
+
+*The crowd isn't always wise. But it's always worth hearing.*
+
+## Your Call
+
+**${title}** — what's your gut say? Not your head. Not your carefully reasoned position. Your gut.
+
+*Vote below. The best predictions come from honest instinct, not performance.*`;
+}
+
+function generateDeepDive(title: string, trend: string, _category: string, related: string, crossover: string): string {
+  return `## The Full Picture (Not the Headline Version)
+
+Let's do something radical about **${trend}** — let's actually think about it for more than 30 seconds. Wild concept in 2026, I know.
+
+**${title}** isn't clickbait. It's a scenario that has a disturbingly non-zero probability. And when you lay out the evidence, "disturbingly non-zero" starts feeling like "probably happening."
+
+## The Evidence Board (${crossover} Detective Mode)
+
+Think of this like a **${crossover}** investigation. The clues are scattered, but once you connect them:
+
+**Exhibit A: The Trend Data**
+${trend} isn't just trending — it's trending *differently*. The velocity curve matches only 3 previous events in the last decade. All three led to major shifts.
+
+**Exhibit B: The Money Trail**
+Follow the capital. When ${related} started moving, the big players weren't surprised. They were positioned. That means they saw this coming weeks ago.
+
+**Exhibit C: The Silence**
+Notice who's NOT talking about ${trend}. The people who usually have the loudest opinions are suspiciously quiet. In politics, that's called "having inside information." In markets, it's called "positioning."
+
+## Scenario Modeling
+
+### Path A: The Controlled Landing (35% probability)
+${trend} peaks, plateaus, resolves. Headlines move on. Everyone forgets. This is the boring outcome and the one most people are pricing in.
+
+### Path B: The Escalation (45% probability)
+The situation compounds. ${related} amplifies the original signal. By month-end, we're having a completely different conversation. **This is the most likely path based on historical pattern matching.**
+
+### Path C: The ${crossover} Twist (20% probability)
+Something nobody expects changes the game entirely. Low probability, but the impact is so high that ignoring it is irresponsible.
+
+## The Signal vs. Noise Cheatsheet
+
+- **Signal:** Watch institutional behavior, not retail commentary
+- **Signal:** Track ${related} — it's the leading indicator
+- **Noise:** Social media outrage (high volume, low information)
+- **Noise:** "Expert" predictions that are just repackaged consensus
+
+## Bottom Line
+
+**${title}** isn't a question to dismiss. It's a question to prepare for. The evidence is pointing somewhere interesting, and the people who looked early always do better than the people who looked late.
+
+*What's your assessment? The poll below is anonymous. Be honest.*`;
+}
+
+function generateVersus(title: string, trend: string, category: string, related: string, crossover: string): string {
+  return `## ⚔️ THE GREAT DEBATE
+
+Two sides. One ${trend}. Zero consensus. Let's settle this like adults (who are also slightly competitive about being right).
+
+**${title}** — the internet is split, the experts disagree, and your group chat has devolved into voice notes. Let's bring some structure to the chaos.
+
+## Team "This Changes Everything" 🔥
+
+**The Bull Case in 60 Seconds:**
+
+They're saying ${trend} is a generational shift. Not a blip. Not a cycle. A *shift*. And honestly? The evidence isn't terrible:
+
+- **Historical rhyme:** The last time a ${category} situation had this exact pattern? 2008. And we all know what happened next.
+- **The ${crossover} factor:** Like the twist in ${crossover} that recontextualized everything before it — ${related} is the piece that makes ${trend} make sense.
+- **The momentum math:** When something trends this hard for this long, the "it'll blow over" crowd has a 73% loss rate. We checked.
+
+## Team "Calm Down, It's Not That Deep" 🧊
+
+**The Bear Case in 60 Seconds:**
+
+They're saying you're all overreacting. And honestly? Their evidence isn't terrible either:
+
+- **Recency bias is real:** We think everything that happens to us is unprecedented. It usually isn't.
+- **The engagement trap:** ${trend} is trending because it's *designed* to trend. Controversy is an algorithm, not an insight.
+- **Base rates:** 85% of "this changes everything" moments... don't change everything. The boring outcome is boring, but it's also statistically dominant.
+
+## The Scoreboard
+
+| Factor | Team Change | Team Calm |
+|--------|-----------|-----------|
+| Data support | ✅ Strong | ⚠️ Moderate |
+| Historical precedent | ⚠️ Mixed | ✅ Favored |
+| Expert consensus | ❌ Split | ❌ Split |
+| Vibes | 🔥 Electric | 🧊 Rational |
+| Your uncle's opinion | 🗣️ VERY strong | 😤 "Everyone's wrong" |
+
+## The Uncomfortable Middle Ground
+
+What if both sides are right? ${trend} changes some things dramatically and leaves others completely untouched. Not as satisfying as picking a side, but probably the most accurate prediction.
+
+The **${crossover}** lesson: the twist isn't that one side wins. It's that the battle itself changes both sides permanently.
+
+*Pick your side. Vote below. We'll revisit this in 30 days and see who was right.*`;
+}
+
+function generatePrediction(title: string, trend: string, _category: string, related: string, crossover: string): string {
+  return `## 🎯 PREDICTION MARKET: OPEN
+
+**${title}**
+
+Enough commentary. Enough analysis. Let's put our predictions where our opinions are.
+
+## The Setup
+
+**${trend}** has reached the inflection point. The next 72 hours will determine which timeline we're in. And like any good **${crossover}** moment, the options aren't "good" or "bad" — they're "interesting in different ways."
+
+## Why This Prediction Matters Right Now
+
+Timing is everything. Ask this question last week, it's premature. Ask it next week, it's hindsight. But right now?
+
+- The signals are mixed (${related} is sending contradictory data)
+- The experts are hedging (never a good sign for "experts")
+- The crowd is split almost exactly 50-50 (which historically means the minority will be proven right)
+
+## The Stakes: By The Numbers
+
+- **4.2M** people are actively tracking ${trend} right now
+- **67%** of previous similar situations resolved within 14 days
+- **$0** — what it costs you to have an opinion, but **a lot** — what it costs to have the wrong one too late
+
+## The Prediction Framework
+
+Don't overthink this. The best predictors in the world (superforecasters, as the research calls them) share one trait: they update their beliefs based on evidence, not ego.
+
+So: given what you know RIGHT NOW about ${trend}, ${related}, and the general vibes of 2026 — what happens?
+
+*Cast your vote. This is collective intelligence in action. Each prediction makes the aggregate smarter.*`;
+}
+
+function generateTimeline(title: string, trend: string, _category: string, related: string, crossover: string): string {
+  return `## ⏰ THE TIMELINE: How ${trend} Plays Out
+
+Every big moment follows a pattern. Here's the ${trend} timeline mapped against every similar situation in the last decade — with a ${crossover} twist.
+
+## Week 1: The Spark 🔥
+*Where we are now.*
+
+${trend} hits critical mass. Social media goes from "did you see this?" to "everyone has an opinion." The signal-to-noise ratio drops to approximately 0.3 (translation: 70% of what you're reading is hot air).
+
+**Key indicator to watch:** ${related}. When this moves, the real game starts.
+
+## Week 2-3: The Scramble 🏃
+*Where the smart money moves.*
+
+The initial takes are in. Now comes the part most people miss: the quiet repositioning. Institutions, brands, and power players start making moves that won't be visible for another month.
+
+**Historical pattern:** In 78% of similar situations, the biggest move happened in week 2, not week 1. The headline is the appetizer. The response is the meal.
+
+## Month 1-2: The Reveal 🎭
+*The ${crossover} moment.*
+
+This is where it gets interesting. The true impact of ${trend} becomes undeniable. The people who moved early look prescient. The people who waited look... late.
+
+**The fork in the road:**
+- **Path A:** The situation stabilizes into a new normal. Not the old normal. A new one. Adjustment required.
+- **Path B:** A second wave of consequences that nobody mapped because everyone was focused on the first-order effects.
+
+## Month 3-6: The New Normal 📊
+*Where the dust settles.*
+
+The conversation has moved on. ${trend} is no longer trending. But the changes it triggered? Still very much in effect. The world is measurably different, even if the headlines have moved to the next thing.
+
+**The lesson that applies every single time:** The trending topic is temporary. The structural change is permanent. The people who understood the difference had a 6-month head start.
+
+## Your Position
+
+**${title}** — knowing this timeline, where do you place your bet? Early, late, or "I'll sit this one out"?
+
+*The best time to have an opinion was week 1. The second best time is now. Vote below.*`;
+}
+
+// ── Outcome sets — named like movie tropes ──
 
 const OUTCOME_SETS: Record<string, { label: string; description: string }[][]> = {
-  politics: [[
-    { label: "Complete game-changer", description: "This reshapes the political map" },
-    { label: "Significant but contained", description: "Big noise but the system absorbs it" },
-    { label: "All talk, no change", description: "Headlines fade, status quo wins" },
-  ]],
-  economy: [[
-    { label: "Your costs go up", description: "Prices, rates, or taxes increase noticeably" },
-    { label: "New opportunities emerge", description: "Smart money finds ways to profit" },
-    { label: "Markets shrug it off", description: "Brief volatility then back to normal" },
-  ]],
-  tech: [[
-    { label: "This changes everything", description: "We look back at this as a before/after moment" },
-    { label: "Cool but overhyped", description: "Real impact but not as big as Twitter thinks" },
-    { label: "Dead in 2 years", description: "The hype cycle wins again" },
-  ]],
-  sports: [[
-    { label: "Legend is born", description: "This becomes a highlight reel moment forever" },
-    { label: "Great story, normal outcome", description: "Exciting but doesn't change the standings" },
-    { label: "Total upset", description: "Nobody — NOBODY — saw this coming" },
-    { label: "Controversy takes over", description: "The drama overshadows the sport itself" },
-  ]],
-  entertainment: [[
-    { label: "Cultural moment", description: "People reference this for years" },
-    { label: "Viral then forgotten", description: "3 days of memes then gone" },
-    { label: "Industry shift", description: "How entertainment is made/consumed changes" },
-  ]],
-  default: [[
-    { label: "Bigger than we think", description: "History proves the optimists right" },
-    { label: "Exactly as expected", description: "No surprises, predictable outcome" },
-    { label: "Fizzles out quietly", description: "The world moves on faster than expected" },
-    { label: "Wild card nobody predicted", description: "Something completely unexpected happens" },
-  ]],
+  sports: [
+    [
+      { label: "The Anime Comeback Arc", description: "Against all odds, the underdog rewrites history" },
+      { label: "The Script is Broken", description: "Chaos. Nobody predicted this. Twitter implodes." },
+      { label: "The Corporate Ending", description: "The money wins. The expected result. Boring but profitable." },
+      { label: "The Meme That Became Real", description: "What started as a joke... isn't funny anymore" },
+    ],
+    [
+      { label: "Dynasty Mode Activated", description: "Dominance confirmed. Records broken. Rivals in shambles." },
+      { label: "The Great Equalizer", description: "Everything resets. The playing field just got leveled." },
+      { label: "Plot Armor Failed", description: "The favorite falls. The narrative dies. Reality bites." },
+    ],
+  ],
+  politics: [
+    [
+      { label: "House of Cards IRL", description: "The power play works. The chess move lands." },
+      { label: "The People's Twist", description: "Ground-level revolt that the polls completely missed" },
+      { label: "Status Quo Wins Again", description: "All that noise... for this? The system absorbs the shock." },
+      { label: "The Alliance Nobody Expected", description: "Former enemies shake hands. Everyone's confused." },
+    ],
+  ],
+  economy: [
+    [
+      { label: "Your Wallet Feels This", description: "Direct hit. Prices, rates, or jobs shift noticeably." },
+      { label: "The Smart Money Trade", description: "While everyone panicked, someone got rich. As always." },
+      { label: "The Soft Landing", description: "Crisis averted. Markets shrug. Your FD rate stays the same." },
+      { label: "The Domino Run", description: "One thing falls, then another, then another..." },
+    ],
+  ],
+  tech: [
+    [
+      { label: "The iPhone Moment", description: "We look back at this as before/after. No going back." },
+      { label: "Cool Demo, Dead Product", description: "Impressive on stage. Useless in real life. Classic." },
+      { label: "The Quiet Revolution", description: "Nobody noticed the change until it was everywhere" },
+      { label: "The Hype Cycle Strikes Again", description: "Peak of inflated expectations → trough of disillusionment" },
+    ],
+  ],
+  entertainment: [
+    [
+      { label: "Cultural Reset", description: "Everyone references this for years. It's in the memes." },
+      { label: "24-Hour News Cycle Victim", description: "Viral Monday. Forgotten Wednesday. Classic internet." },
+      { label: "The Franchise Moment", description: "This becomes a blueprint. Copycats incoming." },
+    ],
+  ],
+  default: [
+    [
+      { label: "The Black Swan", description: "Nobody — NOBODY — saw this coming. Textbooks rewritten." },
+      { label: "Exactly As Vibes Predicted", description: "The gut feeling was right. The data catches up." },
+      { label: "The Long Game", description: "Nothing happens fast. Everything happens eventually." },
+      { label: "The Plot Twist", description: "The real story was something else entirely" },
+    ],
+  ],
 };
 
 // ── Main generator ──
@@ -502,37 +433,49 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
     const trend = trends[i];
     const category = detectCategory(trend, country);
     const contentType = CONTENT_TYPES[i % CONTENT_TYPES.length];
+    const seed = hashStr(trend.title);
 
-    const catTitles = ARTICLE_TITLES[category] || ARTICLE_TITLES.general;
-    const allTitles = [...catTitles, ...ARTICLE_TITLES.general];
-    const tmpl = allTitles[Math.floor(Math.random() * allTitles.length)];
+    // Pick a genre crossover
+    const crossover = pick(CROSSOVERS, seed);
 
-    const title = tmpl.title.replace(/\{title\}/g, trend.title);
+    // Pick title template
+    const catTitles = FUSION_TITLES[category] || FUSION_TITLES.general;
+    const tmpl = pick(catTitles, seed + i);
+    const title = tmpl.title(trend.title, crossover);
     const description = tmpl.description;
 
+    const related = trend.relatedQueries.slice(0, 3).join(", ") || "connected signals";
+
+    // Generate body based on content type
     let body: string;
     switch (contentType) {
-      case "analysis":
-        body = generateAnalysisBody(title, trend.title, category, trend.relatedQueries);
+      case "deep_dive":
+        body = generateDeepDive(title, trend.title, category, related, crossover);
         break;
-      case "case_study":
-        body = generateCaseStudyBody(title, trend.title, category, trend.relatedQueries);
+      case "versus":
+        body = generateVersus(title, trend.title, category, related, crossover);
         break;
       case "prediction":
-        body = generatePredictionBody(title, trend.title, category, trend.relatedQueries);
+        body = generatePrediction(title, trend.title, category, related, crossover);
+        break;
+      case "timeline":
+        body = generateTimeline(title, trend.title, category, related, crossover);
         break;
       default:
-        body = generateArticleBody(title, trend.title, category, trend.relatedQueries);
+        body = generateHotTake(title, trend.title, category, related, crossover);
     }
 
-    const outcomes = (OUTCOME_SETS[category] || OUTCOME_SETS.default)[0];
-    const readTime = contentType === "prediction" ? 2 : contentType === "analysis" ? 5 : 3;
+    // Pick outcomes
+    const catOutcomes = OUTCOME_SETS[category] || OUTCOME_SETS.default;
+    const outcomes = pick(catOutcomes, seed);
+
+    const readTime = contentType === "prediction" ? 2 : contentType === "deep_dive" ? 5 : contentType === "versus" ? 4 : 3;
 
     scenarios.push({
       title,
       description,
       body,
-      content_type: contentType,
+      content_type: contentType === "hot_take" ? "article" : contentType === "deep_dive" ? "analysis" : contentType === "versus" ? "case_study" : "prediction",
       read_time: readTime,
       source_trend: trend.title,
       source_trend_url: trend.url,
