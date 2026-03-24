@@ -37,9 +37,77 @@ const IMPACT_CONFIG = [
   { key: "tech" as const, label: "Tech", color: "#00B4D8" },
 ];
 
-// Simple markdown-ish renderer for article body
+// ── Section illustration SVGs — themed to content ──
+
+const SECTION_ICONS: Record<string, React.ReactNode> = {
+  // Data/stats sections
+  chart: (
+    <svg viewBox="0 0 120 60" className="w-full h-full">
+      <rect x="10" y="35" width="12" height="20" rx="2" fill="#FF6B00" opacity="0.7" />
+      <rect x="28" y="20" width="12" height="35" rx="2" fill="#E63946" opacity="0.7" />
+      <rect x="46" y="28" width="12" height="27" rx="2" fill="#00B4D8" opacity="0.7" />
+      <rect x="64" y="10" width="12" height="45" rx="2" fill="#2DC653" opacity="0.7" />
+      <rect x="82" y="22" width="12" height="33" rx="2" fill="#7B2FBE" opacity="0.7" />
+      <rect x="100" y="15" width="12" height="40" rx="2" fill="#FF8C00" opacity="0.7" />
+      <line x1="5" y1="55" x2="115" y2="55" stroke="white" strokeWidth="0.5" opacity="0.2" />
+    </svg>
+  ),
+  // Versus/debate sections
+  versus: (
+    <svg viewBox="0 0 120 60" className="w-full h-full">
+      <circle cx="30" cy="30" r="20" fill="#E63946" opacity="0.2" />
+      <circle cx="90" cy="30" r="20" fill="#00B4D8" opacity="0.2" />
+      <text x="30" y="35" textAnchor="middle" fill="#E63946" fontSize="16" fontWeight="bold" opacity="0.8">🔥</text>
+      <text x="90" y="35" textAnchor="middle" fill="#00B4D8" fontSize="16" fontWeight="bold" opacity="0.8">🧊</text>
+      <text x="60" y="36" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" opacity="0.5">⚔️</text>
+    </svg>
+  ),
+  // Timeline sections
+  timeline: (
+    <svg viewBox="0 0 120 60" className="w-full h-full">
+      <line x1="10" y1="30" x2="110" y2="30" stroke="white" strokeWidth="1" opacity="0.15" />
+      {[20, 40, 60, 80, 100].map((x, i) => (
+        <g key={i}>
+          <circle cx={x} cy={30} r={4 + i} fill={["#E63946", "#FF6B00", "#00B4D8", "#2DC653", "#7B2FBE"][i]} opacity={0.6} />
+          <circle cx={x} cy={30} r={2} fill="white" opacity={0.4} />
+        </g>
+      ))}
+    </svg>
+  ),
+  // Prediction/crystal ball
+  prediction: (
+    <svg viewBox="0 0 120 60" className="w-full h-full">
+      <circle cx="60" cy="28" r="18" fill="#7B2FBE" opacity="0.15" />
+      <circle cx="60" cy="28" r="12" fill="#7B2FBE" opacity="0.2" />
+      <circle cx="60" cy="28" r="6" fill="white" opacity="0.15" />
+      <text x="60" y="33" textAnchor="middle" fontSize="14" opacity="0.7">🎯</text>
+      <path d="M42 46 Q60 52 78 46" stroke="#7B2FBE" strokeWidth="1.5" fill="none" opacity="0.3" />
+    </svg>
+  ),
+  // General/lightbulb
+  idea: (
+    <svg viewBox="0 0 120 60" className="w-full h-full">
+      <circle cx="60" cy="25" r="15" fill="#FF8C00" opacity="0.15" />
+      <text x="60" y="31" textAnchor="middle" fontSize="16" opacity="0.7">💡</text>
+      <line x1="52" y1="42" x2="68" y2="42" stroke="#FF8C00" strokeWidth="1" opacity="0.3" />
+      <line x1="54" y1="46" x2="66" y2="46" stroke="#FF8C00" strokeWidth="1" opacity="0.2" />
+    </svg>
+  ),
+};
+
+function detectSectionType(heading: string): string {
+  const h = heading.toLowerCase();
+  if (/number|stat|data|math|chart|metric|%|scoreboard/i.test(h)) return "chart";
+  if (/vs|versus|debate|team|bull|bear|side/i.test(h)) return "versus";
+  if (/timeline|week|month|phase|day|countdown|hour/i.test(h)) return "timeline";
+  if (/predict|call|vote|bet|gut|forecast|market/i.test(h)) return "prediction";
+  return "idea";
+}
+
+// Markdown renderer with inline section illustrations
 function ArticleBody({ body }: { body: string }) {
   const lines = body.split("\n");
+  let sectionCount = 0;
 
   return (
     <div className="prose-whatif space-y-4">
@@ -47,12 +115,31 @@ function ArticleBody({ body }: { body: string }) {
         const trimmed = line.trim();
         if (!trimmed) return null;
 
-        // ## Heading
+        // ## Heading — with section illustration
         if (trimmed.startsWith("## ")) {
+          const headingText = trimmed.slice(3);
+          sectionCount++;
+          const sectionType = detectSectionType(headingText);
+          const icon = SECTION_ICONS[sectionType] || SECTION_ICONS.idea;
+
           return (
-            <h2 key={i} className="font-title text-xl md:text-2xl text-scroll-cream mt-8 mb-3 first:mt-0">
-              {trimmed.slice(3)}
-            </h2>
+            <div key={i}>
+              {/* Section illustration — every 2nd section gets one */}
+              {sectionCount % 2 === 0 && (
+                <div className="flex justify-center my-6 opacity-60">
+                  <div className="w-32 h-16">{icon}</div>
+                </div>
+              )}
+              {/* Section divider line */}
+              {sectionCount > 1 && (
+                <div className="flex items-center gap-3 mt-10 mb-4">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                </div>
+              )}
+              <h2 className="font-title text-xl md:text-2xl text-scroll-cream mb-3">
+                {headingText}
+              </h2>
+            </div>
           );
         }
 
@@ -65,12 +152,15 @@ function ArticleBody({ body }: { body: string }) {
           );
         }
 
-        // Table row
+        // Table — styled as a card
         if (trimmed.startsWith("|")) {
-          if (trimmed.includes("---")) return null; // separator
+          if (trimmed.includes("---")) return null;
           const cells = trimmed.split("|").filter(Boolean).map((c) => c.trim());
+          const isHeader = i + 1 < lines.length && lines[i + 1]?.includes("---");
           return (
-            <div key={i} className="flex gap-4 py-1.5 text-xs font-mono border-b border-white/[0.04]">
+            <div key={i} className={`flex gap-4 py-2 px-3 text-xs font-mono ${isHeader ? "border-b border-amaterasu-purple/20 text-scroll-cream/90 font-bold" : "border-b border-white/[0.04]"}`}
+              style={isHeader ? { background: "rgba(123,47,190,0.06)" } : undefined}
+            >
               {cells.map((cell, j) => (
                 <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-mist-gray/60"}`}>
                   {cell}
@@ -80,7 +170,7 @@ function ArticleBody({ body }: { body: string }) {
           );
         }
 
-        // List item
+        // List item — with colored bullet
         if (trimmed.startsWith("- ")) {
           const text = trimmed.slice(2);
           return (
@@ -93,12 +183,15 @@ function ArticleBody({ body }: { body: string }) {
           );
         }
 
-        // Italic paragraph (*text*)
+        // Italic callout (*text*) — styled as a pull quote
         if (trimmed.startsWith("*") && trimmed.endsWith("*")) {
           return (
-            <p key={i} className="text-amaterasu-purple/70 font-body text-sm italic border-l-2 border-amaterasu-purple/30 pl-4 my-6">
-              {trimmed.slice(1, -1)}
-            </p>
+            <div key={i} className="my-8 relative">
+              <div className="absolute -left-2 top-0 bottom-0 w-1 rounded-full bg-gradient-to-b from-amaterasu-purple/60 to-sharingan-red/40" />
+              <p className="text-amaterasu-purple/70 font-body text-sm italic pl-5">
+                {trimmed.slice(1, -1)}
+              </p>
+            </div>
           );
         }
 
