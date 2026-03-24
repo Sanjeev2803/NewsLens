@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-// ── AI Cartoon Image Generation (Pollinations.ai) ──
+// ── AI Cartoon Image Generation (Gemini 2.5 Flash Image) ──
 
 const CARTOON_STYLE = "colorful cartoon illustration, Amul topical ad style, vibrant colors, bold outlines, editorial cartoon, no text, no watermark";
 
@@ -32,32 +32,14 @@ function buildCartoonPrompt(topic: string, category: string): string {
   return `${CARTOON_STYLE}, ${topic}, ${scene}`;
 }
 
-function buildCartoonSeed(topic: string): number {
-  return Math.abs(topic.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
-}
-
 async function generateCartoonImage(topic: string, category: string): Promise<string | null> {
-  const apiKey = process.env.POLLINATIONS_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const prompt = buildCartoonPrompt(topic, category);
-  const seed = buildCartoonSeed(topic);
 
-  // Pre-generate the image by hitting Pollinations (warms the cache)
-  const genUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=800&height=500&seed=${seed}&model=flux-schnell&key=${apiKey}&nologo=true&safe=true`;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch(genUrl, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-
-    // Store the proxy URL (key added server-side via /api/whatif-image)
-    return `/api/whatif-image?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
-  } catch {
-    return null;
-  }
+  // Store proxy URL — image generated on-demand when browser requests it
+  return `/api/whatif-image?prompt=${encodeURIComponent(prompt)}`;
 }
 
 // DuckDuckGo instant answer — reliable free image source
