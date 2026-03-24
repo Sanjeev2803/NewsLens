@@ -21,18 +21,76 @@ interface TrendInput {
 
 // ── Category detection ──
 
+// Region-specific sports keywords — ensures cricket trends in India, football in EU, etc.
+const REGIONAL_SPORTS: Record<string, string[]> = {
+  in: [
+    "cricket", "ipl", "wicket", "kohli", "dhoni", "bumrah", "rohit sharma",
+    "rcb", "csk", "mi", "srh", "kkr", "dc", "pbks", "gt", "lsg", "rr",
+    "bcci", "test match", "odi", "t20", "ranji", "kabaddi", "pro kabaddi",
+    "badminton", "pv sindhu", "neeraj chopra", "ist", "hockey india",
+  ],
+  us: [
+    "nfl", "nba", "mlb", "nhl", "super bowl", "touchdown", "home run",
+    "lebron", "curry", "mahomes", "brady", "world series", "stanley cup",
+    "march madness", "ncaa", "mls", "usmnt", "draft pick",
+  ],
+  gb: [
+    "premier league", "epl", "arsenal", "chelsea", "liverpool", "man city",
+    "man united", "tottenham", "fa cup", "championship", "relegation",
+    "the ashes", "rugby", "six nations", "wimbledon", "f1",
+  ],
+  de: [
+    "bundesliga", "bayern", "dortmund", "dfb", "pokal", "handball",
+    "formula 1", "vettel", "schumacher",
+  ],
+  fr: [
+    "ligue 1", "psg", "mbappe", "roland garros", "tour de france",
+    "rugby", "top 14", "les bleus",
+  ],
+  jp: [
+    "npb", "baseball", "j-league", "sumo", "shohei ohtani",
+    "figure skating", "olympics tokyo", "martial arts",
+  ],
+  au: [
+    "afl", "nrl", "cricket australia", "ashes", "rugby union",
+    "wallabies", "a-league", "australian open", "surfing",
+  ],
+  br: [
+    "brasileirão", "serie a", "flamengo", "palmeiras", "corinthians",
+    "neymar", "vinicius", "copa libertadores", "f1", "volleyball",
+  ],
+  ca: [
+    "nhl", "hockey", "maple leafs", "canadiens", "cfl", "grey cup",
+    "raptors", "blue jays", "mls",
+  ],
+};
+
+// Region-specific politics keywords
+const REGIONAL_POLITICS: Record<string, string[]> = {
+  in: ["bjp", "congress", "modi", "rahul gandhi", "lok sabha", "rajya sabha", "rbi", "niti aayog"],
+  us: ["trump", "biden", "democrat", "republican", "congress", "senate", "white house", "supreme court"],
+  gb: ["labour", "conservative", "starmer", "parliament", "nhs", "downing street", "commons"],
+  de: ["bundestag", "scholz", "merkel", "spd", "cdu", "grüne", "afd"],
+  fr: ["macron", "assemblée", "elysée", "le pen"],
+  jp: ["diet", "ldp", "kishida"],
+  au: ["albanese", "liberal party", "labor"],
+  br: ["lula", "bolsonaro", "congresso", "stf"],
+  ca: ["trudeau", "parliament", "liberal", "conservative"],
+};
+
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   politics: [
-    "election", "minister", "parliament", "government", "bjp", "congress",
-    "bill", "law", "policy", "modi", "president", "senate", "vote",
+    "election", "minister", "parliament", "government",
+    "bill", "law", "policy", "president", "senate", "vote",
     "diplomat", "sanction", "protest", "rally", "opposition", "cabinet",
-    "supreme court", "governor", "trump", "biden", "referendum",
+    "governor", "referendum",
   ],
   economy: [
-    "market", "stock", "rupee", "dollar", "gdp", "inflation", "trade",
-    "tax", "rbi", "budget", "recession", "crypto", "bitcoin", "sensex",
-    "nifty", "fed", "interest rate", "startup", "ipo", "investment",
+    "market", "stock", "dollar", "gdp", "inflation", "trade",
+    "tax", "budget", "recession", "crypto", "bitcoin",
+    "fed", "interest rate", "startup", "ipo", "investment",
     "unemployment", "oil price", "export", "import", "tariff",
+    "rupee", "sensex", "nifty", "rbi",
   ],
   tech: [
     "ai", "artificial intelligence", "chatgpt", "openai", "google",
@@ -41,10 +99,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "hack", "data breach", "cloud", "blockchain", "neural",
   ],
   sports: [
-    "cricket", "ipl", "match", "fifa", "olympics", "player", "team",
-    "goal", "wicket", "kohli", "dhoni", "ronaldo", "messi", "world cup",
-    "tennis", "f1", "grand prix", "medal", "champion", "league",
-    "rcb", "csk", "mi", "srh", "kkr", "dc", "pbks", "gt", "lsg", "rr",
+    "match", "fifa", "olympics", "player", "team",
+    "goal", "medal", "champion", "league", "world cup",
+    "tennis", "f1", "grand prix",
   ],
   entertainment: [
     "movie", "bollywood", "hollywood", "actor", "actress", "netflix",
@@ -59,11 +116,22 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ],
 };
 
-function detectCategory(trend: TrendInput): string {
+function detectCategory(trend: TrendInput, country: string = "in"): string {
   const text = `${trend.title} ${trend.relatedQueries.join(" ")}`.toLowerCase();
   let best = "general";
   let bestScore = 0;
-  for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+
+  // Merge global + regional keywords for sports and politics
+  const regionalSports = REGIONAL_SPORTS[country] || [];
+  const regionalPolitics = REGIONAL_POLITICS[country] || [];
+
+  const mergedKeywords: Record<string, string[]> = {
+    ...CATEGORY_KEYWORDS,
+    sports: [...CATEGORY_KEYWORDS.sports, ...regionalSports],
+    politics: [...CATEGORY_KEYWORDS.politics, ...regionalPolitics],
+  };
+
+  for (const [cat, kws] of Object.entries(mergedKeywords)) {
     const score = kws.filter((kw) => text.includes(kw)).length;
     if (score > bestScore) { bestScore = score; best = cat; }
   }
@@ -432,7 +500,7 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
 
   for (let i = 0; i < trends.length; i++) {
     const trend = trends[i];
-    const category = detectCategory(trend);
+    const category = detectCategory(trend, country);
     const contentType = CONTENT_TYPES[i % CONTENT_TYPES.length];
 
     const catTitles = ARTICLE_TITLES[category] || ARTICLE_TITLES.general;

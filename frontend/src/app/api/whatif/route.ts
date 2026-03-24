@@ -25,46 +25,66 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
   const offset = (page - 1) * limit;
 
+  // Detect user's country from IP (Vercel header → query param → default)
+  const ipCountry = (
+    req.headers.get("x-vercel-ip-country") ||
+    searchParams.get("country") ||
+    "in"
+  ).toLowerCase();
+
   try {
     const supabase = await createServerSupabase();
 
-    let query = supabase
-      .from("scenarios")
-      .select("*, outcomes(*), profile:profiles(*)", { count: "exact" })
-      .eq("status", "active")
+    // Strategy: fetch local scenarios first, backfill with others if not enough
+    const buildQuery = (countryFilter?: string) => {
+      let q = supabase
+        .from("scenarios")
+        .select("*, outcomes(*), profile:profiles(*)", { count: "exact" })
+        .eq("status", "active");
+
+      if (category !== "all") q = q.eq("category", category);
+      if (countryFilter) q = q.eq("country", countryFilter);
+
+      switch (sort) {
+        case "newest":
+          q = q.order("created_at", { ascending: false });
+          break;
+        case "most_voted":
+          q = q.order("vote_count", { ascending: false });
+          break;
+        default:
+          q = q.order("vote_count", { ascending: false }).order("created_at", { ascending: false });
+      }
+
+      return q;
+    };
+
+    // Try local country first
+    let { data: localData, count: localCount } = await buildQuery(ipCountry)
       .range(offset, offset + limit - 1);
 
-    if (category !== "all") {
-      query = query.eq("category", category);
-    }
+    let scenarios = localData || [];
+    let total = localCount || 0;
 
-    switch (sort) {
-      case "newest":
-        query = query.order("created_at", { ascending: false });
-        break;
-      case "most_voted":
-        query = query.order("vote_count", { ascending: false });
-        break;
-      case "trending":
-      default:
-        query = query.order("vote_count", { ascending: false }).order("created_at", { ascending: false });
-        break;
-    }
+    // If not enough local results, backfill with all countries
+    if (scenarios.length < limit) {
+      const localIds = new Set(scenarios.map((s) => s.id));
+      const backfillNeeded = limit - scenarios.length;
+      const { data: globalData, count: globalCount } = await buildQuery()
+        .range(0, backfillNeeded + scenarios.length - 1);
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error("[whatif] Supabase error:", error);
-      return NextResponse.json({ error: "Failed to fetch scenarios" }, { status: 500 });
+      const backfill = (globalData || []).filter((s) => !localIds.has(s.id));
+      scenarios = [...scenarios, ...backfill.slice(0, backfillNeeded)];
+      total = Math.max(total, globalCount || 0);
     }
 
     return NextResponse.json(
       {
-        scenarios: data || [],
-        total: count || 0,
+        scenarios,
+        total,
         page,
         limit,
-        hasMore: (count || 0) > offset + limit,
+        hasMore: total > offset + limit,
       },
       { headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" } }
     );

@@ -1,17 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchGoogleTrends } from "@/lib/regionalSources";
 import { generateScenarios } from "@/lib/whatif/generator";
-import { searchImageForHeadline } from "@/lib/imageEnrich";
 import { createClient } from "@supabase/supabase-js";
 
 /*
   Cron: Auto-generate What If scenarios from trending topics.
   Runs every 30 minutes. Deduplicates by trend title to avoid repeats.
   Uses service-level Supabase client to bypass RLS for AI inserts.
+  Generates AI cartoon cover images via Pollinations.
 */
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+// ── AI Cartoon Image Generation (Pollinations.ai) ──
+
+const CARTOON_STYLE = "colorful cartoon illustration, Amul topical ad style, vibrant colors, bold outlines, editorial cartoon, no text, no watermark";
+
+const CATEGORY_SCENE: Record<string, string> = {
+  sports: "stadium crowd cheering, dynamic action pose, sports field",
+  politics: "parliament building, political podium, flags waving",
+  economy: "stock market charts, coins and currency, city skyline",
+  tech: "futuristic gadgets, glowing screens, circuit boards",
+  entertainment: "movie camera, stage lights, red carpet",
+  society: "diverse crowd, city life, nature and buildings",
+  general: "newspaper headlines, globe, magnifying glass",
+};
+
+function buildCartoonPrompt(topic: string, category: string): string {
+  const scene = CATEGORY_SCENE[category] || CATEGORY_SCENE.general;
+  return `${CARTOON_STYLE}, ${topic}, ${scene}`;
+}
+
+function buildCartoonSeed(topic: string): number {
+  return Math.abs(topic.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
+}
+
+async function generateCartoonImage(topic: string, category: string): Promise<string | null> {
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+  if (!apiKey) return null;
+
+  const prompt = buildCartoonPrompt(topic, category);
+  const seed = buildCartoonSeed(topic);
+
+  // Pre-generate the image by hitting Pollinations (warms the cache)
+  const genUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=800&height=500&seed=${seed}&model=flux-schnell&key=${apiKey}&nologo=true&safe=true`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const res = await fetch(genUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+
+    // Store the proxy URL (key added server-side via /api/whatif-image)
+    return `/api/whatif-image?prompt=${encodeURIComponent(prompt)}&seed=${seed}`;
+  } catch {
+    return null;
+  }
+}
 
 // DuckDuckGo instant answer — reliable free image source
 async function fetchDuckDuckGoImage(query: string): Promise<string | null> {
@@ -141,9 +188,17 @@ async function scrapeOgImage(url: string): Promise<string | null> {
   }
 }
 
+// Generate What-Ifs for all major regions — each gets locally relevant trends
 const GEOS = [
   { geo: "IN", country: "in" },
   { geo: "US", country: "us" },
+  { geo: "GB", country: "gb" },
+  { geo: "DE", country: "de" },
+  { geo: "FR", country: "fr" },
+  { geo: "JP", country: "jp" },
+  { geo: "AU", country: "au" },
+  { geo: "BR", country: "br" },
+  { geo: "CA", country: "ca" },
 ];
 
 export async function GET(req: NextRequest) {
@@ -197,20 +252,11 @@ export async function GET(req: NextRequest) {
       for (const scenario of scenarios) {
         const { outcomes, body, content_type, read_time, ...rest } = scenario;
 
-        // Fetch cover image — race all strategies in parallel, take first success
+        // Generate AI cartoon cover image via Pollinations
         let cover_image: string | null = null;
         try {
-          const results = await Promise.allSettled([
-            fetchWikipediaImage(rest.source_trend),
-            fetchDuckDuckGoImage(rest.source_trend),
-            scrapeOgImage(rest.source_trend_url),
-            searchImageForHeadline(rest.source_trend + " news"),
-          ]);
-          // Pick first fulfilled non-null result (ordered by preference)
-          for (const r of results) {
-            if (r.status === "fulfilled" && r.value) { cover_image = r.value; break; }
-          }
-        } catch { /* non-critical */ }
+          cover_image = await generateCartoonImage(rest.source_trend, scenario.category);
+        } catch { /* non-critical — cards have SVG fallback */ }
 
         // Insert scenario with body, content_type, and cover image
         const { data: inserted, error: insertErr } = await supabase

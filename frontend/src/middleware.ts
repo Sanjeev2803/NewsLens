@@ -7,12 +7,19 @@ import { NextRequest, NextResponse } from "next/server";
 */
 
 const ALLOWED_PARAMS: Record<string, RegExp> = {
-  category: /^[a-z]{2,20}$/,
+  category: /^[a-z_]{2,20}$/,
   country: /^[a-z]{2}$/,
   lang: /^[a-z]{2,5}$/,
   max: /^\d{1,3}$/,
   countries: /^[a-z,]{2,50}$/,
   _cache: /^[a-z]+$/,
+  // What-If params
+  sort: /^[a-z_]{2,20}$/,
+  page: /^\d{1,4}$/,
+  limit: /^\d{1,3}$/,
+  // Whatif-image proxy params
+  prompt: /^.{1,500}$/,
+  seed: /^\d{1,12}$/,
   // Article page params — allow URL-safe characters
   url: /^https?:\/\/.+$/,
   title: /^.{0,500}$/,
