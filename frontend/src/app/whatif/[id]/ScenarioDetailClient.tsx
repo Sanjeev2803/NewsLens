@@ -88,7 +88,7 @@ function ArticleBody({ body }: { body: string }) {
               }`}
             >
               {cells.map((cell, j) => (
-                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-mist-gray/75"}`}>
+                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-scroll-cream/70"}`}>
                   {cell}
                 </span>
               ))}
@@ -102,7 +102,7 @@ function ArticleBody({ body }: { body: string }) {
           return (
             <div key={i} className="flex items-start gap-3 pl-1">
               <span className="w-1 h-1 rounded-full bg-mist-gray/30 mt-[10px] shrink-0" />
-              <span className="text-mist-gray/85 font-body text-[15px] leading-[1.85]"
+              <span className="text-scroll-cream/80 font-body text-[15px] leading-[1.85]"
                 dangerouslySetInnerHTML={{ __html: formatInline(text) }}
               />
             </div>
@@ -122,7 +122,7 @@ function ArticleBody({ body }: { body: string }) {
 
         // Regular paragraph
         return (
-          <p key={i} className="text-mist-gray/85 font-body text-[15px] leading-[1.85]"
+          <p key={i} className="text-scroll-cream/80 font-body text-[15px] leading-[1.85]"
             dangerouslySetInnerHTML={{ __html: formatInline(trimmed) }}
           />
         );
@@ -142,7 +142,7 @@ function escapeHtml(str: string): string {
 
 function formatInline(text: string): string {
   return escapeHtml(text)
-    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-scroll-cream/90 font-semibold">$1</strong>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-scroll-cream font-semibold">$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
 
@@ -257,7 +257,7 @@ export default function ScenarioDetailClient() {
             {/* Description */}
             {scenario.description && (
               <motion.p
-                className="text-mist-gray/65 font-body text-base md:text-lg mb-6 max-w-3xl"
+                className="text-scroll-cream/60 font-body text-base md:text-lg mb-6 max-w-3xl"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
@@ -273,7 +273,7 @@ export default function ScenarioDetailClient() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.25 }}
             >
-              <div className="flex items-center gap-4 text-[11px] font-mono text-mist-gray/55">
+              <div className="flex items-center gap-4 text-xs font-mono text-mist-gray/70">
                 <span>
                   {scenario.is_ai_generated ? "NewsLens AI" : scenario.profile?.display_name || "Anonymous"}
                 </span>

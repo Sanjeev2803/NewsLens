@@ -325,7 +325,7 @@ export default function WhatIfCard({ scenario, index, featured = false }: { scen
               {scenario.title}
             </h3>
 
-            <div className="flex items-center justify-between text-[10px] font-mono text-mist-gray/40">
+            <div className="flex items-center justify-between text-[10px] font-mono text-mist-gray/60">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
                   {scenario.is_ai_generated ? (
