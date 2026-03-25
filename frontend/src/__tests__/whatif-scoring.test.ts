@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreTheory, matchMood, scoreTrend } from "@/lib/whatif/scoring";
+import { scoreTheory, matchMood, scoreTrend, scoreTrendBatch } from "@/lib/whatif/scoring";
 import type { TrendInput } from "@/lib/whatif/types";
 
 const SPORTS_TREND: TrendInput = {
@@ -75,5 +75,37 @@ describe("scoring pipeline", () => {
       expect(a.theory.id).toBe(b.theory.id);
       expect(a.mood.id).toBe(b.mood.id);
     });
+  });
+});
+
+describe("batch diversity", () => {
+  it("scoreTrendBatch avoids duplicate theories across a batch", () => {
+    const trends: TrendInput[] = [
+      { title: "OnePlus shutdown", traffic: "5000+", relatedQueries: ["CEO resigns", "shutdown"], url: "u" },
+      { title: "Samsung collapse fears", traffic: "3000+", relatedQueries: ["market crash", "shutdown"], url: "u" },
+      { title: "Xiaomi factory closure", traffic: "2000+", relatedQueries: ["closing down", "failure"], url: "u" },
+    ];
+    const results = scoreTrendBatch(trends, "tech");
+    const theoryIds = results.map(r => r.theory.id);
+    expect(new Set(theoryIds).size).toBe(3);
+  });
+
+  it("scoreTrendBatch returns correct number of results", () => {
+    const trends: TrendInput[] = [
+      { title: "trend 1", traffic: "1000+", relatedQueries: ["a"], url: "u" },
+      { title: "trend 2", traffic: "2000+", relatedQueries: ["b"], url: "u" },
+    ];
+    const results = scoreTrendBatch(trends, "general");
+    expect(results.length).toBe(2);
+  });
+
+  it("scoreTrendBatch each result has full structure", () => {
+    const trends: TrendInput[] = [
+      { title: "test trend", traffic: "1000+", relatedQueries: ["test"], url: "u" },
+    ];
+    const results = scoreTrendBatch(trends, "tech");
+    expect(results[0].theory.id).toBeTruthy();
+    expect(results[0].mood.id).toBeTruthy();
+    expect(results[0].scoreBreakdown).toBeDefined();
   });
 });

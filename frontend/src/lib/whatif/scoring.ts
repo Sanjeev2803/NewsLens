@@ -229,3 +229,36 @@ export function scoreTrend(trend: TrendInput, category: string): TrendScore {
     scoreBreakdown,
   };
 }
+
+// ── Batch pipeline: scoreTrendBatch ───────────────────────────────────────────
+
+/**
+ * Score a batch of trends with deduplication across theories and moods.
+ * Each trend in the batch gets a unique theory and unique mood, so a feed
+ * page doesn't feel repetitive. Falls back to the top pick if all
+ * alternatives are exhausted (more trends than available theories).
+ */
+export function scoreTrendBatch(
+  trends: TrendInput[],
+  category: string
+): { theory: Theory; mood: Mood; scoreBreakdown: ScoreBreakdown }[] {
+  const usedTheories = new Set<string>();
+  const usedMoods = new Set<string>();
+  return trends.map((trend) => {
+    const ranked = scoreTheory(trend, category);
+    const pick = ranked.find(r => !usedTheories.has(r.theory.id)) ?? ranked[0];
+    usedTheories.add(pick.theory.id);
+    const moodResult = matchMood(trend, pick.theory, usedMoods);
+    usedMoods.add(moodResult.mood.id);
+    return {
+      theory: pick.theory,
+      mood: moodResult.mood,
+      scoreBreakdown: {
+        theoryScore: pick.score,
+        moodScore: moodResult.score,
+        affinityHit: pick.affinityHit,
+        keywordHits: pick.keywordHits,
+      },
+    };
+  });
+}
