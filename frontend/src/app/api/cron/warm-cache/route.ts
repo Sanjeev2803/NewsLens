@@ -44,8 +44,9 @@ const WARM_COMBOS = [
   { country: "gb", lang: "en", category: "sports" },
 ];
 
-const NEWS_TTL = { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 };
-const SOCIAL_TTL = { ttlMs: 3 * 60 * 1000, staleGraceMs: 3 * 60 * 1000 };
+// staleGraceMs raised to 5min so total Redis life = 7min (survives 2 missed cron cycles)
+const NEWS_TTL = { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 };
+const SOCIAL_TTL = { ttlMs: 3 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 };
 
 export async function GET(req: NextRequest) {
   // ── Auth check — required in production, optional in dev ──
@@ -99,8 +100,9 @@ export async function GET(req: NextRequest) {
         try {
           const socialData = await fetchAllSocial(country, lang, category);
           await setCacheEntry(`social:${category}:${country}:${lang}`, socialData, SOCIAL_TTL);
-        } catch {
+        } catch (socialErr) {
           // Social is optional — don't fail the combo
+          console.error(`[cron] social fetch failed for ${label}:`, socialErr);
         }
 
         return { combo: label, status: "ok", ms: Date.now() - comboStart };

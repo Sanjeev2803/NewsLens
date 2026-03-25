@@ -70,8 +70,9 @@ async function redisSet(key: string, data: unknown, createdAt: number, totalTtlM
   if (!r) return;
 
   try {
-    // Store with TTL = fresh + stale grace (Redis auto-expires)
-    const ttlSeconds = Math.ceil(totalTtlMs / 1000);
+    // Store with TTL = fresh + stale grace (Redis auto-expires).
+    // Floor at 600s (10 min) so a single missed cron cycle never empties Redis.
+    const ttlSeconds = Math.max(Math.ceil(totalTtlMs / 1000), 600);
     await r.set(key, { data, createdAt } satisfies RedisEntry, { ex: ttlSeconds });
   } catch (err) {
     console.warn("[cache] Redis SET failed:", err);

@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { ...result, articles: result.articles.slice(0, max) },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } }
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } }
     );
   } catch (err) {
     console.error("News fetch error:", err);
