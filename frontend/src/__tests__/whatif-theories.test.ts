@@ -68,6 +68,14 @@ describe("theories registry", () => {
     expect(THEORY_REGISTRY.size).toBe(20);
   });
 
+  it("each theory has sectionNames matching sections count", () => {
+    for (const theory of THEORY_REGISTRY.values()) {
+      expect(theory.sectionNames).toBeDefined();
+      expect(theory.sectionNames.length).toBe(theory.sections.length);
+      theory.sectionNames.forEach(name => expect(name.length).toBeGreaterThan(0));
+    }
+  });
+
   it("covers all 4 groups", () => {
     const groups = new Set<string>();
     for (const theory of THEORY_REGISTRY.values()) groups.add(theory.group);

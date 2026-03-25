@@ -142,6 +142,7 @@ export interface Theory {
   rhythm: string;
   readerRelationship: string;
   sections: SectionBuilder[];
+  sectionNames: string[];
   outcomes: OutcomeSet[];
   affinities: Record<string, number>;
   keywords: string[];

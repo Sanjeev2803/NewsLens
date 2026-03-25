@@ -1083,6 +1083,13 @@ const THEORIES: Theory[] = [
       gameTheory_forcedHand,
       gameTheory_endgame,
     ],
+    sectionNames: [
+      "The Opening Move",
+      "The Board",
+      "The Hidden Play",
+      "The Forced Hand",
+      "The Endgame",
+    ],
     outcomes: [
       [
         { label: "The Checkmate", description: "One player dominates completely — total strategic victory with no counter-play left." },
@@ -1118,6 +1125,11 @@ const THEORIES: Theory[] = [
       butterfly_theSmallThing,
       butterfly_theChain,
       butterfly_theFullPicture,
+    ],
+    sectionNames: [
+      "The Small Thing",
+      "The Chain",
+      "The Full Picture",
     ],
     outcomes: [
       [
@@ -1156,6 +1168,12 @@ const THEORIES: Theory[] = [
       dk_theData,
       dk_theExpertReality,
     ],
+    sectionNames: [
+      "The Popular Take",
+      "Why It Feels Right",
+      "The Data",
+      "The Expert Reality",
+    ],
     outcomes: [
       [
         { label: "The Experts Were Right", description: "The nuanced, boring take wins — domain knowledge beats viral confidence." },
@@ -1193,6 +1211,12 @@ const THEORIES: Theory[] = [
       streisand_theExplosion,
       streisand_theIrony,
     ],
+    sectionNames: [
+      "The Original",
+      "The Suppression",
+      "The Explosion",
+      "The Irony",
+    ],
     outcomes: [
       [
         { label: "The Full Streisand", description: "The suppression made it 100x bigger — the cover-up became the story." },
@@ -1228,6 +1252,11 @@ const THEORIES: Theory[] = [
       pareto_theNoise,
       pareto_theFunnel,
       pareto_theLever,
+    ],
+    sectionNames: [
+      "The Noise",
+      "The Funnel",
+      "The Lever",
     ],
     outcomes: [
       [
@@ -1267,6 +1296,13 @@ const THEORIES: Theory[] = [
       domino_fifthDomino,
       domino_theChainComplete,
     ],
+    sectionNames: [
+      "Domino #1: The Trigger",
+      "Domino #2: The Immediate Fallout",
+      "Dominoes #3 and #4: The Acceleration",
+      "Domino #5: The One That Matters",
+      "The Chain Complete",
+    ],
     outcomes: [
       [
         { label: "The Full Chain", description: "Every domino fell in sequence — the chain completed exactly as physics demanded." },
@@ -1302,6 +1338,11 @@ const THEORIES: Theory[] = [
       greaterFool_theRush,
       greaterFool_theSmartExit,
       greaterFool_theCliff,
+    ],
+    sectionNames: [
+      "The Rush",
+      "The Smart Exit",
+      "The Cliff",
     ],
     outcomes: [
       [
@@ -1340,6 +1381,12 @@ const THEORIES: Theory[] = [
       commons_theCollision,
       commons_theParadox,
     ],
+    sectionNames: [
+      "Player A: The Rational Actor",
+      "Player B: The Other Rational Actor",
+      "The Collision",
+      "The Paradox",
+    ],
     outcomes: [
       [
         { label: "The Commons Collapse", description: "The shared resource depleted — everyone took rationally and the commons died." },
@@ -1375,6 +1422,11 @@ const THEORIES: Theory[] = [
       bandwagon_theWave,
       bandwagon_thePeelBack,
       bandwagon_theGap,
+    ],
+    sectionNames: [
+      "The Wave",
+      "The Peel-Back",
+      "The Gap",
     ],
     outcomes: [
       [
@@ -1413,6 +1465,12 @@ const THEORIES: Theory[] = [
       sunkCost_theTrap,
       sunkCost_theChoice,
     ],
+    sectionNames: [
+      "The Investment",
+      "The Escalation",
+      "The Trap",
+      "The Choice",
+    ],
     outcomes: [
       [
         { label: "The Walk Away", description: "They cut their losses — absorbed the pain and freed future decisions from the past." },
@@ -1450,6 +1508,12 @@ const THEORIES: Theory[] = [
       confirmation_theMissing,
       confirmation_theThirdAngle,
     ],
+    sectionNames: [
+      "Side A",
+      "Side B",
+      "The Missing Piece",
+      "The Third Angle",
+    ],
     outcomes: [
       [
         { label: "Side A Wins", description: "Side A's interpretation proved correct — their filtered view happened to match reality." },
@@ -1485,6 +1549,11 @@ const THEORIES: Theory[] = [
       herd_theStampede,
       herd_theEdge,
       herd_theAerial,
+    ],
+    sectionNames: [
+      "The Stampede",
+      "The Edge",
+      "The Aerial View",
     ],
     outcomes: [
       [
@@ -1522,6 +1591,11 @@ const THEORIES: Theory[] = [
       blackSwan_theReality,
       blackSwan_theLessonInHindsight,
     ],
+    sectionNames: [
+      "The Model",
+      "The Reality",
+      "The Lesson in Hindsight",
+    ],
     outcomes: [
       [
         { label: "The True Black Swan", description: "Genuinely unprecedented — no model could have caught it. The unknown unknown." },
@@ -1557,6 +1631,11 @@ const THEORIES: Theory[] = [
       chaos_theVariables,
       chaos_theSensitivity,
       chaos_theSimulation,
+    ],
+    sectionNames: [
+      "The Variables",
+      "The Sensitivity",
+      "The Simulation",
     ],
     outcomes: [
       [
@@ -1595,6 +1674,12 @@ const THEORIES: Theory[] = [
       murphy_failureThree,
       murphy_theCompound,
     ],
+    sectionNames: [
+      "Failure #1: The One Everyone's Watching",
+      "Failure #2: The Adjacent Break",
+      "Failure #3: The Silent One",
+      "The Compound",
+    ],
     outcomes: [
       [
         { label: "The Perfect Storm", description: "All failures converged simultaneously — the compound effect exceeded the sum of its parts." },
@@ -1630,6 +1715,11 @@ const THEORIES: Theory[] = [
       machiavelli_thePublicMove,
       machiavelli_thePowerPlay,
       machiavelli_theRealGame,
+    ],
+    sectionNames: [
+      "The Public Move",
+      "The Power Play",
+      "The Real Game",
     ],
     outcomes: [
       [
@@ -1667,6 +1757,11 @@ const THEORIES: Theory[] = [
       overton_theShift,
       overton_theNewNormal,
     ],
+    sectionNames: [
+      "The Extreme",
+      "The Shift",
+      "The New Normal",
+    ],
     outcomes: [
       [
         { label: "The Window Moves", description: "The shift stuck — what was extreme is now policy, and the window has a new center." },
@@ -1702,6 +1797,11 @@ const THEORIES: Theory[] = [
       network_theQuietPhase,
       network_theTippingPoint,
       network_theExplosion,
+    ],
+    sectionNames: [
+      "The Quiet Phase",
+      "The Tipping Point",
+      "The Explosion",
     ],
     outcomes: [
       [
@@ -1739,6 +1839,11 @@ const THEORIES: Theory[] = [
       creative_theEmergence,
       creative_theNewLandscape,
     ],
+    sectionNames: [
+      "The Eulogy",
+      "The Emergence",
+      "The New Landscape",
+    ],
     outcomes: [
       [
         { label: "The Clean Replace", description: "The new thing fully replaced the old — a complete generational handoff." },
@@ -1774,6 +1879,11 @@ const THEORIES: Theory[] = [
       zeroSum_theBattle,
       zeroSum_theReframe,
       zeroSum_theNewGame,
+    ],
+    sectionNames: [
+      "The Battle",
+      "The Reframe",
+      "The New Game",
     ],
     outcomes: [
       [
