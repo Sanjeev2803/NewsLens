@@ -63,4 +63,17 @@ describe("theories registry", () => {
     const bodyIrony = theory.sections.map(s => s(MOCK_TREND, irony)).join("\n");
     expect(bodyHype).not.toBe(bodyIrony);
   });
+
+  it("has exactly 20 theories", () => {
+    expect(THEORY_REGISTRY.size).toBe(20);
+  });
+
+  it("covers all 4 groups", () => {
+    const groups = new Set<string>();
+    for (const theory of THEORY_REGISTRY.values()) groups.add(theory.group);
+    expect(groups).toContain("economics_strategy");
+    expect(groups).toContain("psychology_behavior");
+    expect(groups).toContain("systems_chaos");
+    expect(groups).toContain("power_society");
+  });
 });
