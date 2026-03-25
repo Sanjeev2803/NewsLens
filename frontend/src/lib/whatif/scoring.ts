@@ -190,6 +190,14 @@ export function matchMood(
     return a.mood.id.localeCompare(b.mood.id);
   });
 
+  // Safety fallback: if all moods were excluded (batch has more trends than
+  // available moods), ignore exclusions and return the top mood from the full
+  // registry so we never return undefined and crash downstream consumers.
+  if (results.length === 0) {
+    const fallback = MOOD_REGISTRY.values().next().value!;
+    return { mood: fallback, score: 0 };
+  }
+
   return results[0];
 }
 

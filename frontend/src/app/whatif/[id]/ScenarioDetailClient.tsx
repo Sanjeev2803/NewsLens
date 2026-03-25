@@ -141,7 +141,11 @@ function escapeHtml(str: string): string {
 }
 
 function formatInline(text: string): string {
-  return escapeHtml(text)
+  const escaped = escapeHtml(text);
+  // SECURITY: Only bold and italic markdown are converted to HTML.
+  // escapeHtml runs FIRST, so no raw HTML can pass through.
+  // If this function is extended to support links/images, add DOMPurify.
+  return escaped
     .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-scroll-cream font-semibold">$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }

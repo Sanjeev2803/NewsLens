@@ -21,12 +21,6 @@ const ALLOWED_PARAMS: Record<string, RegExp> = {
   // Whatif-image proxy params
   prompt: /^[a-zA-Z0-9 ,.\-!?':;()_@#%&+=/\[\]]+$/,
   seed: /^\d{1,12}$/,
-  // Article page params — allow URL-safe characters
-  url: /^https?:\/\/.+$/,
-  title: /^.{0,500}$/,
-  source: /^.{0,100}$/,
-  image: /^https?:\/\/.+$/,
-  description: /^.{0,1000}$/,
 };
 
 export function proxy(req: NextRequest) {
@@ -43,10 +37,6 @@ export function proxy(req: NextRequest) {
           { status: 400 }
         );
       }
-      // Reject unknown params (except known ones)
-      if (!ALLOWED_PARAMS[key] && !key.startsWith("_")) {
-        // Allow through — don't block unknown params, just ignore them
-      }
     }
 
     // ── Security + CORS headers ──
@@ -56,23 +46,21 @@ export function proxy(req: NextRequest) {
       "http://localhost:3000",
       "http://localhost:3001",
     ].filter(Boolean);
-    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || "";
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : "";
 
     // Handle preflight
     if (req.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": corsOrigin,
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Max-Age": "86400",
-        },
-      });
+      const preflightHeaders: Record<string, string> = {
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
+      };
+      if (corsOrigin) preflightHeaders["Access-Control-Allow-Origin"] = corsOrigin;
+      return new NextResponse(null, { status: 204, headers: preflightHeaders });
     }
 
     const response = NextResponse.next();
-    response.headers.set("Access-Control-Allow-Origin", corsOrigin);
+    if (corsOrigin) response.headers.set("Access-Control-Allow-Origin", corsOrigin);
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
     response.headers.set("X-Content-Type-Options", "nosniff");

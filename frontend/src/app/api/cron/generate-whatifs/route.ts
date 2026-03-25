@@ -99,50 +99,78 @@ async function fetchWikipediaImage(query: string): Promise<string | null> {
 // SSRF protection imported from @/lib/ssrf
 
 // Scrape og:image from a URL (works on most news sites)
+// Follows redirects manually so every hop is validated against isSafeUrl,
+// preventing SSRF via 302 → http://169.254.169.254/ or other internal IPs.
 async function scrapeOgImage(url: string): Promise<string | null> {
   if (!isSafeUrl(url)) return null;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        Accept: "text/html",
-      },
-      redirect: "follow",
-    });
+
+    let currentUrl = url;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 3;
+
+    while (redirectCount <= MAX_REDIRECTS) {
+      const res = await fetch(currentUrl, {
+        signal: controller.signal,
+        redirect: "manual",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept: "text/html",
+        },
+      });
+
+      // Handle redirects — validate each hop before following
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) break;
+        // Resolve relative redirect URLs against the current URL
+        const resolvedUrl = new URL(location, currentUrl).toString();
+        if (!isSafeUrl(resolvedUrl)) {
+          clearTimeout(timeout);
+          return null; // Redirect targets unsafe host — abort
+        }
+        currentUrl = resolvedUrl;
+        redirectCount++;
+        continue;
+      }
+
+      clearTimeout(timeout);
+      if (!res.ok) return null;
+
+      const reader = res.body?.getReader();
+      if (!reader) return null;
+      let html = "";
+      const decoder = new TextDecoder();
+      while (html.length < 50000) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        html += decoder.decode(value, { stream: true });
+      }
+      reader.cancel();
+
+      // Try og:image
+      const ogMatch = html.match(/<meta[^>]*property=["']og:image(?::url)?["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image(?::url)?["']/i);
+      if (ogMatch?.[1] && ogMatch[1].startsWith("http")) return ogMatch[1];
+
+      // Try twitter:image
+      const twMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+      if (twMatch?.[1] && twMatch[1].startsWith("http")) return twMatch[1];
+
+      // Try any large image
+      const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/gi)];
+      for (const m of imgMatches) {
+        if (/logo|icon|favicon|avatar|badge|pixel|1x1|sprite/i.test(m[1])) continue;
+        return m[1];
+      }
+
+      return null;
+    }
+
     clearTimeout(timeout);
-    if (!res.ok) return null;
-
-    const reader = res.body?.getReader();
-    if (!reader) return null;
-    let html = "";
-    const decoder = new TextDecoder();
-    while (html.length < 50000) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
-    }
-    reader.cancel();
-
-    // Try og:image
-    const ogMatch = html.match(/<meta[^>]*property=["']og:image(?::url)?["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image(?::url)?["']/i);
-    if (ogMatch?.[1] && ogMatch[1].startsWith("http")) return ogMatch[1];
-
-    // Try twitter:image
-    const twMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
-    if (twMatch?.[1] && twMatch[1].startsWith("http")) return twMatch[1];
-
-    // Try any large image
-    const imgMatches = [...html.matchAll(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/gi)];
-    for (const m of imgMatches) {
-      if (/logo|icon|favicon|avatar|badge|pixel|1x1|sprite/i.test(m[1])) continue;
-      return m[1];
-    }
-
     return null;
   } catch {
     return null;
