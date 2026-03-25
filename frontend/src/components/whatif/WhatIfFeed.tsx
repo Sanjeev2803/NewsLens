@@ -9,10 +9,11 @@ import WhatIfCard from "./WhatIfCard";
 interface WhatIfFeedProps {
   category: string;
   sort: string;
+  country?: string;
   onStatsUpdate?: (scenarios: Scenario[], total: number) => void;
 }
 
-export default function WhatIfFeed({ category, sort, onStatsUpdate }: WhatIfFeedProps) {
+export default function WhatIfFeed({ category, sort, country = "in", onStatsUpdate }: WhatIfFeedProps) {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -24,7 +25,7 @@ export default function WhatIfFeed({ category, sort, onStatsUpdate }: WhatIfFeed
     setLoading(true);
     setError(null);
     setPage(1);
-    fetch(`/api/whatif?category=${category}&sort=${sort}&page=1&limit=20`)
+    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`)
       .then((r) => {
         if (!r.ok) throw new Error(r.status === 429 ? "Too many requests — try again shortly" : "Failed to load predictions");
         return r.json();
@@ -38,13 +39,13 @@ export default function WhatIfFeed({ category, sort, onStatsUpdate }: WhatIfFeed
       })
       .catch((err) => setError(err.message || "Something went wrong"))
       .finally(() => setLoading(false));
-  }, [category, sort, onStatsUpdate]);
+  }, [category, sort, country, onStatsUpdate]);
 
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
     setLoading(true);
     const nextPage = page + 1;
-    fetch(`/api/whatif?category=${category}&sort=${sort}&page=${nextPage}&limit=20`)
+    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=${nextPage}&limit=20`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load more");
         return r.json();
@@ -56,7 +57,7 @@ export default function WhatIfFeed({ category, sort, onStatsUpdate }: WhatIfFeed
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [page, category, sort, loading, hasMore]);
+  }, [page, category, sort, country, loading, hasMore]);
 
   if (loading && scenarios.length === 0) {
     return (
@@ -82,7 +83,7 @@ export default function WhatIfFeed({ category, sort, onStatsUpdate }: WhatIfFeed
           onClick={() => {
             setError(null);
             setLoading(true);
-            fetch(`/api/whatif?category=${category}&sort=${sort}&page=1&limit=20`)
+            fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`)
               .then((r) => { if (!r.ok) throw new Error("Retry failed"); return r.json(); })
               .then((data) => {
                 setScenarios(data.scenarios || []);

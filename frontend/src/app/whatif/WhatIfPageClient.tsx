@@ -5,8 +5,10 @@ import WhatIfHero from "@/components/whatif/WhatIfHero";
 import WhatIfFilters from "@/components/whatif/WhatIfFilters";
 import WhatIfFeed from "@/components/whatif/WhatIfFeed";
 import type { Scenario } from "@/lib/whatif/types";
+import { useGeoCountry } from "@/lib/useGeoCountry";
 
 export default function WhatIfPageClient() {
+  const country = useGeoCountry();
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("trending");
   const [heroStats, setHeroStats] = useState<{ total: number; totalVotes: number; hot: Scenario | null }>({
@@ -39,6 +41,7 @@ export default function WhatIfPageClient() {
       <WhatIfFeed
         category={category}
         sort={sort}
+        country={country}
         onStatsUpdate={onStatsUpdate}
       />
     </>
