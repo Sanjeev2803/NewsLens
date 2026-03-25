@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { IconLoader2, IconMoodEmpty, IconRefresh, IconAlertTriangle } from "@tabler/icons-react";
 import type { Scenario } from "@/lib/whatif/types";
@@ -20,12 +20,20 @@ export default function WhatIfFeed({ category, sort, country = "in", onStatsUpda
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    // Abort any in-flight fetch so stale responses never overwrite current filters
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError(null);
     setPage(1);
-    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`)
+    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`, {
+      signal: controller.signal,
+    })
       .then((r) => {
         if (!r.ok) throw new Error(r.status === 429 ? "Too many requests — try again shortly" : "Failed to load predictions");
         return r.json();
@@ -37,8 +45,15 @@ export default function WhatIfFeed({ category, sort, country = "in", onStatsUpda
         setHasMore(data.hasMore || false);
         onStatsUpdate?.(items, data.total || 0);
       })
-      .catch((err) => setError(err.message || "Something went wrong"))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        setError(err.message || "Something went wrong");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [category, sort, country, onStatsUpdate]);
 
   const loadMore = useCallback(() => {
