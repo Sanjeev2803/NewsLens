@@ -222,12 +222,16 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Check which trends already have scenarios (dedup by source_trend)
+      // Check which trends already have scenarios in the last 24h (dedup by source_trend)
+      // Only exclude trends covered in the past 24 hours — archived/older scenarios
+      // don't block regeneration so tomorrow's visitors always get a fresh take.
       const trendTitles = trends.map((t) => t.title);
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: existing } = await supabase
         .from("scenarios")
         .select("source_trend")
-        .in("source_trend", trendTitles);
+        .in("source_trend", trendTitles)
+        .gt("created_at", oneDayAgo);
 
       const existingTrends = new Set((existing || []).map((s) => s.source_trend));
       const newTrends = trends.filter((t) => !existingTrends.has(t.title));
@@ -249,12 +253,11 @@ export async function GET(req: NextRequest) {
       for (const scenario of scenarios) {
         const { outcomes, body, content_type, read_time, theory: _t, mood: _m, scoreBreakdown: _s, ...rest } = scenario;
 
-        // Resolve cover image using free sources first, AI as last resort:
-        // a) scrapeOgImage from the trend's news article URLs (og:image tags)
-        // b) fetchWikipediaImage for the trend title
-        // c) fetchDuckDuckGoImage for the trend title
-        // d) generateCartoonImage (Gemini/Pollinations) — proxy URL, AI-generated
-        // e) null — card SVG fallback
+        // Resolve cover image from news article og:image tags only.
+        // Wikipedia and DuckDuckGo return generic/unrelated photos (e.g. a random
+        // batsman for a bowling trend). og:image from the actual article is the only
+        // source that reliably gives contextual editorial images.
+        // If none found, null is fine — the card has an SVG illustration fallback.
         let cover_image: string | null = null;
         try {
           const newsUrls = trendNewsUrls.get(rest.source_trend) || [];
@@ -262,18 +265,8 @@ export async function GET(req: NextRequest) {
             cover_image = await scrapeOgImage(newsUrl);
             if (cover_image) break;
           }
-
-          if (!cover_image) {
-            cover_image = await fetchWikipediaImage(rest.source_trend);
-          }
-
-          if (!cover_image) {
-            cover_image = await fetchDuckDuckGoImage(rest.source_trend);
-          }
-
-          if (!cover_image) {
-            cover_image = await generateCartoonImage(rest.source_trend, scenario.category);
-          }
+          // No fallback to Wikipedia/DuckDuckGo — they return irrelevant generic photos.
+          // SVG card illustration is a better UX than a wrong photo.
         } catch { /* non-critical — cards have SVG fallback */ }
 
         // Insert scenario with body, content_type, and cover image
@@ -310,14 +303,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Keep DB clean — archive scenarios older than 7 days
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Keep DB clean — archive AI-generated scenarios older than 24h so tomorrow's
+  // visitors always see freshly generated content rather than yesterday's scenarios.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   await supabase
     .from("scenarios")
     .update({ status: "archived" })
     .eq("is_ai_generated", true)
     .eq("status", "active")
-    .lt("created_at", weekAgo);
+    .lt("created_at", dayAgo);
 
   return NextResponse.json({ status: "completed", results });
 }
