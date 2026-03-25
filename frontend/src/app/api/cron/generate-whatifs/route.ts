@@ -270,7 +270,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Generate scenarios from new trends (max 5 per geo per run)
-      const scenarios = generateScenarios(newTrends.slice(0, 5), country);
+      const scenarios = await generateScenarios(newTrends.slice(0, 5), country);
 
       // Build a map of trend title → newsUrls for image resolution
       const trendNewsUrls = new Map<string, string[]>(

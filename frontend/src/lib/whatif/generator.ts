@@ -11,6 +11,7 @@
 
 import type { GeneratedScenario, TrendInput, Theory, Mood } from "./types";
 import { scoreTheory, matchMood } from "./scoring";
+import { generateArticleWithGemini } from "./gemini";
 
 // ── Regional keywords for category detection ──
 
@@ -167,11 +168,12 @@ function generateDescription(trend: TrendInput, theory: Theory, mood: Mood): str
 
 // ── Main generator ──
 
-export function generateScenarios(trends: TrendInput[], country: string = "in"): GeneratedScenario[] {
+export async function generateScenarios(trends: TrendInput[], country: string = "in"): Promise<GeneratedScenario[]> {
   const usedTheories = new Set<string>();
   const usedMoods = new Set<string>();
+  const scenarios: GeneratedScenario[] = [];
 
-  return trends.map((trend) => {
+  for (const trend of trends) {
     const category = detectCategory(trend, country);
 
     // Stage 2: Score theories for this trend's category, with batch dedup
@@ -187,8 +189,12 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
 
     const mood = moodResult.mood;
 
-    // Compose body from theory sections + mood temperature
-    const body = theory.sections.map((fn) => fn(trend, mood)).join("\n\n");
+    // Compose body via Gemini with template fallback (sequential — respect rate limits)
+    let body = await generateArticleWithGemini(theory, mood, trend, category, country);
+    if (!body) {
+      // Fallback to templates if Gemini fails
+      body = theory.sections.map((fn) => fn(trend, mood)).join("\n\n");
+    }
 
     // Pick outcome set deterministically
     const seed = hashStr(trend.title);
@@ -206,7 +212,7 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
       keywordHits: pick.keywordHits,
     };
 
-    return {
+    scenarios.push({
       title,
       description: generateDescription(trend, theory, mood),
       body,
@@ -221,6 +227,8 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
       theory: { id: theory.id, name: theory.name, voice: theory.voice },
       mood: { id: mood.id, name: mood.name, group: mood.group },
       scoreBreakdown,
-    };
-  });
+    });
+  }
+
+  return scenarios;
 }

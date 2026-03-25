@@ -1,6 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { generateScenarios } from "@/lib/whatif/generator";
 import type { TrendInput, GeneratedScenario } from "@/lib/whatif/types";
+
+vi.mock("@/lib/whatif/gemini", () => ({
+  generateArticleWithGemini: vi.fn().mockResolvedValue(null),
+}));
 
 const TRENDS: TrendInput[] = [
   {
@@ -18,8 +22,8 @@ const TRENDS: TrendInput[] = [
 ];
 
 describe("generator v3", () => {
-  it("generates scenarios with theory and mood metadata", () => {
-    const scenarios = generateScenarios(TRENDS, "in");
+  it("generates scenarios with theory and mood metadata", async () => {
+    const scenarios = await generateScenarios(TRENDS, "in");
     expect(scenarios.length).toBe(2);
     for (const s of scenarios) {
       expect(s.theory).toBeDefined();
@@ -32,30 +36,30 @@ describe("generator v3", () => {
     }
   });
 
-  it("produces non-empty body content", () => {
-    const scenarios = generateScenarios(TRENDS, "in");
+  it("produces non-empty body content", async () => {
+    const scenarios = await generateScenarios(TRENDS, "in");
     for (const s of scenarios) {
       expect(s.body.length).toBeGreaterThan(100);
     }
   });
 
-  it("uses different theories for different trends in same batch", () => {
-    const scenarios = generateScenarios(TRENDS, "in");
+  it("uses different theories for different trends in same batch", async () => {
+    const scenarios = await generateScenarios(TRENDS, "in");
     if (scenarios.length >= 2) {
       expect(scenarios[0].theory.id).not.toBe(scenarios[1].theory.id);
     }
   });
 
-  it("is deterministic", () => {
-    const a = generateScenarios(TRENDS, "in");
-    const b = generateScenarios(TRENDS, "in");
+  it("is deterministic", async () => {
+    const a = await generateScenarios(TRENDS, "in");
+    const b = await generateScenarios(TRENDS, "in");
     expect(a[0].theory.id).toBe(b[0].theory.id);
     expect(a[0].mood.id).toBe(b[0].mood.id);
     expect(a[0].title).toBe(b[0].title);
   });
 
-  it("preserves required GeneratedScenario fields", () => {
-    const scenarios = generateScenarios(TRENDS, "in");
+  it("preserves required GeneratedScenario fields", async () => {
+    const scenarios = await generateScenarios(TRENDS, "in");
     for (const s of scenarios) {
       expect(s.title).toBeTruthy();
       expect(s.description).toBeTruthy();

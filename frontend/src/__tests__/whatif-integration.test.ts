@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { generateScenarios } from "@/lib/whatif/generator";
+
+vi.mock("@/lib/whatif/gemini", () => ({
+  generateArticleWithGemini: vi.fn().mockResolvedValue(null),
+}));
 import { THEORY_REGISTRY } from "@/lib/whatif/theories";
 import { MOOD_REGISTRY } from "@/lib/whatif/moods";
 import type { TrendInput } from "@/lib/whatif/types";
@@ -14,8 +18,8 @@ const DIVERSE_TRENDS: TrendInput[] = [
 ];
 
 describe("whatif v3 integration", () => {
-  it("generates 5 diverse scenarios from 5 different trends", () => {
-    const scenarios = generateScenarios(DIVERSE_TRENDS, "in");
+  it("generates 5 diverse scenarios from 5 different trends", async () => {
+    const scenarios = await generateScenarios(DIVERSE_TRENDS, "in");
     expect(scenarios.length).toBe(5);
 
     // All theories should be different (diversity guarantee)
