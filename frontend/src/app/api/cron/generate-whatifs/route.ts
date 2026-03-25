@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
         });
         if (!rssRes.ok) { results.push({ geo, generated: 0, skipped: 0, error: `RSS ${rssRes.status}` }); continue; }
         const xml = await rssRes.text();
-        const items: { title: string; traffic: string; relatedQueries: string[]; url: string }[] = [];
+        const items: { title: string; traffic: string; relatedQueries: string[]; newsUrls: string[]; url: string }[] = [];
         const itemRegex = /<item>([\s\S]*?)<\/item>/g;
         let m;
         while ((m = itemRegex.exec(xml)) !== null) {
@@ -203,10 +203,12 @@ export async function GET(req: NextRequest) {
           const traffic = item.match(/<ht:approx_traffic>(.*?)<\/ht:approx_traffic>/)?.[1] || "";
           const link = item.match(/<link>(.*?)<\/link>/)?.[1] || "";
           const newsItems = item.match(/<ht:news_item_title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ht:news_item_title>/g) || [];
+          const newsUrlItems = item.match(/<ht:news_item_url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ht:news_item_url>/g) || [];
           items.push({
             title,
             traffic,
             relatedQueries: newsItems.map(n => n.replace(/<\/?ht:news_item_title>/g, "").replace(/<!\[CDATA\[|\]\]>/g, "").trim()).slice(0, 3),
+            newsUrls: newsUrlItems.map(u => u.replace(/<\/?ht:news_item_url>/g, "").replace(/<!\[CDATA\[|\]\]>/g, "").trim()).filter(u => u.startsWith("http")).slice(0, 3),
             url: link,
           });
         }
@@ -238,14 +240,40 @@ export async function GET(req: NextRequest) {
       // Generate scenarios from new trends (max 5 per geo per run)
       const scenarios = generateScenarios(newTrends.slice(0, 5), country);
 
+      // Build a map of trend title → newsUrls for image resolution
+      const trendNewsUrls = new Map<string, string[]>(
+        newTrends.map(t => [t.title, (t as { newsUrls?: string[] }).newsUrls || []])
+      );
+
       let generated = 0;
       for (const scenario of scenarios) {
         const { outcomes, body, content_type, read_time, theory: _t, mood: _m, scoreBreakdown: _s, ...rest } = scenario;
 
-        // Generate AI cartoon cover image via Pollinations
+        // Resolve cover image using free sources first, AI as last resort:
+        // a) scrapeOgImage from the trend's news article URLs (og:image tags)
+        // b) fetchWikipediaImage for the trend title
+        // c) fetchDuckDuckGoImage for the trend title
+        // d) generateCartoonImage (Gemini/Pollinations) — proxy URL, AI-generated
+        // e) null — card SVG fallback
         let cover_image: string | null = null;
         try {
-          cover_image = await generateCartoonImage(rest.source_trend, scenario.category);
+          const newsUrls = trendNewsUrls.get(rest.source_trend) || [];
+          for (const newsUrl of newsUrls) {
+            cover_image = await scrapeOgImage(newsUrl);
+            if (cover_image) break;
+          }
+
+          if (!cover_image) {
+            cover_image = await fetchWikipediaImage(rest.source_trend);
+          }
+
+          if (!cover_image) {
+            cover_image = await fetchDuckDuckGoImage(rest.source_trend);
+          }
+
+          if (!cover_image) {
+            cover_image = await generateCartoonImage(rest.source_trend, scenario.category);
+          }
         } catch { /* non-critical — cards have SVG fallback */ }
 
         // Insert scenario with body, content_type, and cover image
