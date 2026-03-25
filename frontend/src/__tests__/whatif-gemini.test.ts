@@ -145,10 +145,8 @@ describe("buildSystemPrompt", () => {
 
   it("falls back gracefully when sectionNames is absent", () => {
     // Theory without sectionNames (old shape — parallel agent hasn't added it yet)
-    const theoryWithoutSectionNames: Theory = { ...MOCK_THEORY };
-    // Remove sectionNames via cast
-    const cast = theoryWithoutSectionNames as Theory & { sectionNames?: string[] };
-    delete cast.sectionNames;
+    const { sectionNames: _, ...rest } = MOCK_THEORY;
+    const theoryWithoutSectionNames = { ...rest, sectionNames: [] } as Theory;
 
     const prompt = buildSystemPrompt(theoryWithoutSectionNames, MOCK_MOOD, "in");
     expect(prompt).toContain("narrative arc");

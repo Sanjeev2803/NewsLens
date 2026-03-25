@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { IconLock, IconChartBar, IconArrowUp } from "@tabler/icons-react";
+import { IconChartBar, IconArrowUp, IconCheck, IconLoader2 } from "@tabler/icons-react";
 import type { Outcome } from "@/lib/whatif/types";
 
 const OUTCOME_COLORS = [
@@ -15,14 +15,17 @@ const OUTCOME_COLORS = [
 
 interface OutcomePollProps {
   outcomes: Outcome[];
-  readonly?: boolean;
+  votedOutcomeId?: string | null;
+  onVote?: (outcomeId: string) => void;
+  voting?: boolean;
 }
 
-export default function OutcomePoll({ outcomes, readonly = true }: OutcomePollProps) {
+export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting = false }: OutcomePollProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const totalVotes = outcomes.reduce((sum, o) => sum + o.vote_count, 0);
+  const hasVoted = !!votedOutcomeId;
+  const canVote = !!onVote && !hasVoted;
 
-  // Find the leading outcome
   const maxVotes = Math.max(...outcomes.map((o) => o.vote_count), 1);
 
   return (
@@ -48,21 +51,29 @@ export default function OutcomePoll({ outcomes, readonly = true }: OutcomePollPr
           const isLeading = outcome.vote_count === maxVotes && totalVotes > 0;
           const colors = OUTCOME_COLORS[i % OUTCOME_COLORS.length];
           const isHovered = hoveredId === outcome.id;
+          const isVoted = votedOutcomeId === outcome.id;
 
           return (
-            <motion.div
+            <motion.button
               key={outcome.id}
-              className="relative rounded-lg overflow-hidden cursor-pointer"
+              type="button"
+              disabled={!canVote || voting}
+              className={`relative w-full text-left rounded-lg overflow-hidden transition-all
+                ${canVote ? "cursor-pointer" : "cursor-default"}
+              `}
+              style={isVoted ? { boxShadow: `inset 0 0 0 1px ${colors.bar}` } : undefined}
+              onClick={() => canVote && onVote?.(outcome.id)}
               onMouseEnter={() => setHoveredId(outcome.id)}
               onMouseLeave={() => setHoveredId(null)}
-              whileHover={readonly ? {} : { scale: 1.005 }}
+              whileHover={canVote ? { scale: 1.005 } : {}}
+              whileTap={canVote ? { scale: 0.995 } : {}}
             >
               {/* Background */}
               <div
                 className="absolute inset-0 transition-colors duration-300"
                 style={{
-                  background: isHovered ? colors.glow : "rgba(255,255,255,0.02)",
-                  borderLeft: `2px solid ${isHovered || isLeading ? colors.bar : "transparent"}`,
+                  background: isHovered || isVoted ? colors.glow : "rgba(255,255,255,0.02)",
+                  borderLeft: `2px solid ${isHovered || isLeading || isVoted ? colors.bar : "transparent"}`,
                 }}
               />
 
@@ -78,7 +89,10 @@ export default function OutcomePoll({ outcomes, readonly = true }: OutcomePollPr
               <div className="relative flex items-center justify-between px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {isLeading && totalVotes > 0 && (
+                    {isVoted && (
+                      <IconCheck size={13} style={{ color: colors.text }} />
+                    )}
+                    {isLeading && !isVoted && totalVotes > 0 && (
                       <IconArrowUp size={11} style={{ color: colors.text }} />
                     )}
                     <span className="text-[13px] font-heading text-scroll-cream/90">
@@ -91,7 +105,6 @@ export default function OutcomePoll({ outcomes, readonly = true }: OutcomePollPr
                 </div>
 
                 <div className="flex items-center gap-3 ml-3 shrink-0">
-                  {/* Percentage — large, bold */}
                   <motion.span
                     className="text-lg font-mono font-bold"
                     style={{ color: colors.text }}
@@ -103,26 +116,35 @@ export default function OutcomePoll({ outcomes, readonly = true }: OutcomePollPr
                     <span className="text-[10px] font-normal opacity-60">%</span>
                   </motion.span>
 
-                  {/* Vote count */}
                   <span className="text-[9px] text-mist-gray/30 font-mono w-8 text-right">
                     {outcome.vote_count}
                   </span>
                 </div>
               </div>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>
 
       {/* Footer */}
-      {readonly && (
-        <div className="px-5 py-3 border-t border-white/[0.04] flex items-center justify-center gap-2">
-          <IconLock size={11} className="text-mist-gray/30" />
-          <span className="text-[10px] font-mono text-mist-gray/30 uppercase tracking-wider">
-            Sign in to predict
+      <div className="px-5 py-3 border-t border-white/[0.04] flex items-center justify-center gap-2">
+        {voting ? (
+          <>
+            <IconLoader2 size={11} className="text-amaterasu-purple animate-spin" />
+            <span className="text-[10px] font-mono text-amaterasu-purple/60 uppercase tracking-wider">
+              Recording vote...
+            </span>
+          </>
+        ) : hasVoted ? (
+          <span className="text-[10px] font-mono text-mist-gray/40 uppercase tracking-wider">
+            Your prediction is recorded
           </span>
-        </div>
-      )}
+        ) : (
+          <span className="text-[10px] font-mono text-mist-gray/40 uppercase tracking-wider">
+            Tap to predict
+          </span>
+        )}
+      </div>
     </div>
   );
 }

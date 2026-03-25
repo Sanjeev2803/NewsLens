@@ -281,20 +281,23 @@ export async function GET(req: NextRequest) {
       for (const scenario of scenarios) {
         const { outcomes, body, content_type, read_time, theory: _t, mood: _m, scoreBreakdown: _s, ...rest } = scenario;
 
-        // Resolve cover image from news article og:image tags only.
-        // Wikipedia and DuckDuckGo return generic/unrelated photos (e.g. a random
-        // batsman for a bowling trend). og:image from the actual article is the only
-        // source that reliably gives contextual editorial images.
+        // Resolve cover image: AI-generated first, then og:image from news articles.
+        // AI images are contextually relevant (topic + category in the prompt).
+        // og:image fallback for when AI generation is unavailable.
         // If none found, null is fine — the card has an SVG illustration fallback.
         let cover_image: string | null = null;
         try {
-          const newsUrls = trendNewsUrls.get(rest.source_trend) || [];
-          for (const newsUrl of newsUrls) {
-            cover_image = await scrapeOgImage(newsUrl);
-            if (cover_image) break;
+          // Primary: AI-generated editorial image via /api/whatif-image proxy
+          cover_image = await generateCartoonImage(rest.source_trend, rest.category);
+
+          // Fallback: scrape og:image from the actual news articles
+          if (!cover_image) {
+            const newsUrls = trendNewsUrls.get(rest.source_trend) || [];
+            for (const newsUrl of newsUrls) {
+              cover_image = await scrapeOgImage(newsUrl);
+              if (cover_image) break;
+            }
           }
-          // No fallback to Wikipedia/DuckDuckGo — they return irrelevant generic photos.
-          // SVG card illustration is a better UX than a wrong photo.
         } catch { /* non-critical — cards have SVG fallback */ }
 
         // Insert scenario with body, content_type, and cover image

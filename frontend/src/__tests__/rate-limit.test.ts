@@ -37,9 +37,9 @@ describe("checkRateLimit", () => {
 });
 
 describe("getClientIp", () => {
-  it("extracts IP from x-forwarded-for", () => {
+  it("extracts last IP from x-forwarded-for (closest proxy)", () => {
     const headers = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
-    expect(getClientIp({ headers })).toBe("1.2.3.4");
+    expect(getClientIp({ headers })).toBe("5.6.7.8");
   });
 
   it("extracts IP from x-real-ip", () => {
@@ -52,12 +52,12 @@ describe("getClientIp", () => {
     expect(getClientIp({ headers })).toBe("unknown");
   });
 
-  it("prefers x-forwarded-for over x-real-ip", () => {
+  it("prefers x-real-ip over x-forwarded-for (trusted proxy header)", () => {
     const headers = new Headers({
       "x-forwarded-for": "1.1.1.1",
       "x-real-ip": "2.2.2.2",
     });
-    expect(getClientIp({ headers })).toBe("1.1.1.1");
+    expect(getClientIp({ headers })).toBe("2.2.2.2");
   });
 });
 

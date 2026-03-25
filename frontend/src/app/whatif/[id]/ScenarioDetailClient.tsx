@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -17,7 +17,8 @@ import {
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import OutcomePoll from "@/components/whatif/OutcomePoll";
-import type { Scenario, TimelineNode } from "@/lib/whatif/types";
+import Comments from "@/components/whatif/Comments";
+import type { Scenario, Outcome, TimelineNode } from "@/lib/whatif/types";
 import { CONTENT_TYPE_LABELS } from "@/lib/whatif/types";
 import { timeAgo } from "@/lib/utils";
 
@@ -36,30 +37,57 @@ const IMPACT_CONFIG = [
   { key: "tech" as const, label: "Tech", color: "#00B4D8" },
 ];
 
-// Clean article renderer — professional newspaper-style layout
+// ── Reading progress bar ──────────────────────────────────────────────────────
+
+function ReadingProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const el = document.documentElement;
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight - el.clientHeight;
+      setProgress(scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 h-[2px]">
+      <div
+        className="h-full bg-amaterasu-purple transition-[width] duration-75"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
+// ── Article body renderer — Medium-quality typography ──────────────────────────
+
 function ArticleBody({ body }: { body: string }) {
   const lines = body.split("\n");
   let sectionCount = 0;
+  let paragraphCount = 0;
 
   return (
-    <article className="space-y-5">
+    <article className="space-y-6">
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return null;
 
-        // Skip legacy <!-- IMG: --> tags — cover image is handled separately
         if (/^<!--\s*IMG:/.test(trimmed)) return null;
 
-        // ## Section heading — clean divider + heading
+        // ## Section heading
         if (trimmed.startsWith("## ")) {
           const headingText = trimmed.slice(3);
           sectionCount++;
           return (
             <div key={i}>
               {sectionCount > 1 && (
-                <div className="mt-10 mb-5 h-px bg-white/[0.06]" />
+                <div className="mt-12 mb-6 h-px bg-white/[0.06]" />
               )}
-              <h2 className="font-title text-xl md:text-2xl text-scroll-cream mb-3 leading-snug">
+              <h2 className="font-title text-2xl md:text-3xl text-scroll-cream mb-4 leading-snug">
                 {headingText}
               </h2>
             </div>
@@ -69,26 +97,26 @@ function ArticleBody({ body }: { body: string }) {
         // ### Subheading
         if (trimmed.startsWith("### ")) {
           return (
-            <h3 key={i} className="font-heading text-lg text-scroll-cream/90 mt-7 mb-2">
+            <h3 key={i} className="font-heading text-xl text-scroll-cream/90 mt-8 mb-3">
               {trimmed.slice(4)}
             </h3>
           );
         }
 
-        // Table — clean data table
+        // Table
         if (trimmed.startsWith("|")) {
           if (trimmed.includes("---")) return null;
           const cells = trimmed.split("|").filter(Boolean).map((c) => c.trim());
           const isHeader = i + 1 < lines.length && lines[i + 1]?.includes("---");
           return (
             <div key={i}
-              className={`flex gap-4 py-2.5 px-4 text-[13px] ${isHeader
+              className={`flex gap-4 py-2.5 px-4 text-sm ${isHeader
                 ? "border-b-2 border-white/[0.08] text-scroll-cream/90 font-semibold"
                 : "border-b border-white/[0.04]"
               }`}
             >
               {cells.map((cell, j) => (
-                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-scroll-cream/70"}`}>
+                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/85" : "text-scroll-cream/70"}`}>
                   {cell}
                 </span>
               ))}
@@ -96,24 +124,24 @@ function ArticleBody({ body }: { body: string }) {
           );
         }
 
-        // List item — subtle bullet
+        // List item
         if (trimmed.startsWith("- ")) {
           const text = trimmed.slice(2);
           return (
             <div key={i} className="flex items-start gap-3 pl-1">
-              <span className="w-1 h-1 rounded-full bg-mist-gray/30 mt-[10px] shrink-0" />
-              <span className="text-scroll-cream/80 font-body text-[15px] leading-[1.85]"
+              <span className="w-1.5 h-1.5 rounded-full bg-amaterasu-purple/30 mt-[10px] shrink-0" />
+              <span className="text-scroll-cream/85 font-body text-[17px] md:text-[19px] leading-[1.9]"
                 dangerouslySetInnerHTML={{ __html: formatInline(text) }}
               />
             </div>
           );
         }
 
-        // Italic callout (*text*) — pull quote with left border
-        if (trimmed.startsWith("*") && trimmed.endsWith("*")) {
+        // Blockquote / italic callout
+        if (trimmed.startsWith("*") && trimmed.endsWith("*") && !trimmed.startsWith("**")) {
           return (
-            <blockquote key={i} className="my-8 pl-5 border-l-2 border-chakra-orange/30">
-              <p className="text-scroll-cream/70 font-body text-sm italic leading-relaxed">
+            <blockquote key={i} className="my-10 pl-6 border-l-[3px] border-amaterasu-purple/25">
+              <p className="text-scroll-cream/65 font-body text-base md:text-lg italic leading-relaxed">
                 {trimmed.slice(1, -1)}
               </p>
             </blockquote>
@@ -121,8 +149,15 @@ function ArticleBody({ body }: { body: string }) {
         }
 
         // Regular paragraph
+        paragraphCount++;
+        const isLead = paragraphCount === 1;
         return (
-          <p key={i} className="text-scroll-cream/80 font-body text-[15px] leading-[1.85]"
+          <p key={i}
+            className={`font-body leading-[1.9] md:leading-[2] ${
+              isLead
+                ? "text-scroll-cream/90 text-[19px] md:text-[21px]"
+                : "text-scroll-cream/85 text-[17px] md:text-[19px]"
+            }`}
             dangerouslySetInnerHTML={{ __html: formatInline(trimmed) }}
           />
         );
@@ -142,13 +177,12 @@ function escapeHtml(str: string): string {
 
 function formatInline(text: string): string {
   const escaped = escapeHtml(text);
-  // SECURITY: Only bold and italic markdown are converted to HTML.
-  // escapeHtml runs FIRST, so no raw HTML can pass through.
-  // If this function is extended to support links/images, add DOMPurify.
   return escaped
     .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-scroll-cream font-semibold">$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function ScenarioDetailClient() {
   const { id } = useParams<{ id: string }>();
@@ -158,14 +192,57 @@ export default function ScenarioDetailClient() {
   const [bookmarked, setBookmarked] = useState(false);
   const [shareToast, setShareToast] = useState(false);
 
+  // Voting state
+  const [votedOutcomeId, setVotedOutcomeId] = useState<string | null>(null);
+  const [voting, setVoting] = useState(false);
+  const [liveOutcomes, setLiveOutcomes] = useState<Outcome[]>([]);
+
   useEffect(() => {
     if (!id) return;
     fetch(`/api/whatif/${id}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(setScenario)
+      .then((data) => {
+        setScenario(data);
+        setLiveOutcomes(data.outcomes || []);
+        // Check localStorage for existing vote
+        const stored = localStorage.getItem(`whatif-vote-${id}`);
+        if (stored) setVotedOutcomeId(stored);
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleVote = useCallback(async (outcomeId: string) => {
+    if (!id || voting || votedOutcomeId) return;
+    setVoting(true);
+
+    try {
+      const res = await fetch(`/api/whatif/${id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outcome_id: outcomeId }),
+      });
+
+      if (res.status === 409) {
+        // Already voted (by IP) — just mark it
+        const data = await res.json();
+        setVotedOutcomeId(data.voted_outcome_id || outcomeId);
+        localStorage.setItem(`whatif-vote-${id}`, data.voted_outcome_id || outcomeId);
+        return;
+      }
+
+      if (!res.ok) throw new Error("Vote failed");
+
+      const data = await res.json();
+      setVotedOutcomeId(outcomeId);
+      localStorage.setItem(`whatif-vote-${id}`, outcomeId);
+      if (data.outcomes) setLiveOutcomes(data.outcomes);
+    } catch {
+      // Silent fail — don't break the UI
+    } finally {
+      setVoting(false);
+    }
+  }, [id, voting, votedOutcomeId]);
 
   if (loading) {
     return (
@@ -184,7 +261,7 @@ export default function ScenarioDetailClient() {
         <Navbar />
         <main className="min-h-screen pt-20 px-6 text-center py-20">
           <h1 className="font-brand text-2xl text-scroll-cream/60 mb-3">Not Found</h1>
-          <p className="text-mist-gray/30 font-mono text-xs">This scenario doesn't exist</p>
+          <p className="text-mist-gray/30 font-mono text-xs">This scenario doesn&apos;t exist</p>
         </main>
         <Footer />
       </>
@@ -192,27 +269,28 @@ export default function ScenarioDetailClient() {
   }
 
   const contentLabel = CONTENT_TYPE_LABELS[scenario.content_type] || CONTENT_TYPE_LABELS.article;
-  const outcomes = scenario.outcomes || [];
+  const outcomes = liveOutcomes.length > 0 ? liveOutcomes : (scenario.outcomes || []);
 
   return (
     <>
+      <ReadingProgress />
       <Navbar />
       <main id="main-content" className="min-h-screen pt-20">
-        {/* Article header — full width */}
+        {/* Article header */}
         <div className="px-4 md:px-6">
           <div className="max-w-4xl mx-auto pt-4">
             {/* Back */}
             <Link
               href="/whatif"
-              className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-mist-gray/55 hover:text-amaterasu-purple transition-colors mb-6"
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-mist-gray/55 hover:text-amaterasu-purple transition-colors mb-8"
             >
               <IconArrowLeft size={13} />
-              Back to What-If Dimension
+              Back to What-If
             </Link>
 
             {/* Badges */}
             <motion.div
-              className="flex flex-wrap items-center gap-2 mb-4"
+              className="flex flex-wrap items-center gap-2 mb-5"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
@@ -250,7 +328,7 @@ export default function ScenarioDetailClient() {
 
             {/* Title */}
             <motion.h1
-              className="font-title text-2xl md:text-4xl lg:text-5xl text-scroll-cream leading-[1.1] mb-4"
+              className="font-title text-3xl md:text-4xl lg:text-5xl text-scroll-cream leading-tight mb-5"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -261,7 +339,7 @@ export default function ScenarioDetailClient() {
             {/* Description */}
             {scenario.description && (
               <motion.p
-                className="text-scroll-cream/60 font-body text-base md:text-lg mb-6 max-w-3xl"
+                className="text-scroll-cream/60 font-body text-lg md:text-xl leading-relaxed mb-8 max-w-3xl"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
@@ -272,12 +350,12 @@ export default function ScenarioDetailClient() {
 
             {/* Meta bar */}
             <motion.div
-              className="flex items-center justify-between py-4 border-y border-white/[0.04] mb-8"
+              className="flex items-center justify-between py-4 border-y border-white/[0.06] mb-10"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.25 }}
             >
-              <div className="flex items-center gap-4 text-xs font-mono text-mist-gray/70">
+              <div className="flex items-center gap-5 text-xs font-mono text-mist-gray/70">
                 <span>
                   {scenario.is_ai_generated ? "NewsLens AI" : scenario.profile?.display_name || "Anonymous"}
                 </span>
@@ -301,7 +379,7 @@ export default function ScenarioDetailClient() {
                 </button>
                 <button
                   onClick={() => {
-                    try { navigator.clipboard.writeText(window.location.href); } catch { /* fallback: noop */ }
+                    try { navigator.clipboard.writeText(window.location.href); } catch { /* noop */ }
                     setShareToast(true);
                     setTimeout(() => setShareToast(false), 2000);
                   }}
@@ -320,10 +398,10 @@ export default function ScenarioDetailClient() {
           </div>
         </div>
 
-        {/* Cover image — single hero image, newspaper style */}
+        {/* Cover image */}
         {scenario.cover_image && (
           <div className="px-4 md:px-6">
-            <div className="max-w-4xl mx-auto mb-8">
+            <div className="max-w-4xl mx-auto mb-10">
               <div className="rounded-lg overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -358,12 +436,17 @@ export default function ScenarioDetailClient() {
             {/* Prediction Poll */}
             {outcomes.length > 0 && (
               <motion.div
-                className="my-10"
+                className="my-12"
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <OutcomePoll outcomes={outcomes} readonly={true} />
+                <OutcomePoll
+                  outcomes={outcomes}
+                  votedOutcomeId={votedOutcomeId}
+                  onVote={handleVote}
+                  voting={voting}
+                />
               </motion.div>
             )}
 
@@ -373,7 +456,7 @@ export default function ScenarioDetailClient() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45 }}
-                className="my-10 rounded-xl border border-white/[0.04] bg-[#0c0c14] p-6"
+                className="my-12 rounded-xl border border-white/[0.04] bg-[#0c0c14] p-6"
               >
                 <h3 className="font-mono text-[11px] uppercase tracking-widest text-scroll-cream/80 mb-4">
                   Community Impact Assessment
@@ -411,7 +494,7 @@ export default function ScenarioDetailClient() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="my-10 rounded-xl border border-white/[0.04] bg-[#0c0c14] p-6"
+                className="my-12 rounded-xl border border-white/[0.04] bg-[#0c0c14] p-6"
               >
                 <h3 className="font-mono text-[11px] uppercase tracking-widest text-scroll-cream/80 mb-5">
                   Event Timeline
@@ -436,8 +519,21 @@ export default function ScenarioDetailClient() {
                 </div>
               </motion.div>
             )}
+
+            {/* Comments */}
+            <motion.div
+              className="my-12"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+            >
+              <Comments scenarioId={scenario.id} />
+            </motion.div>
           </div>
         </div>
+
+        {/* Bottom spacing */}
+        <div className="h-16" />
       </main>
       <Footer />
     </>
