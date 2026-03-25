@@ -94,6 +94,10 @@ export interface GeneratedScenario {
   is_ai_generated: boolean;
   country: string;
   outcomes: { label: string; description?: string }[];
+  // v3 metadata
+  theory: { id: string; name: string; voice: string };
+  mood: { id: string; name: string; group: string };
+  scoreBreakdown: ScoreBreakdown;
 }
 
 export const CONTENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -114,3 +118,54 @@ export const WHATIF_CATEGORIES = [
 ] as const;
 
 export type WhatIfCategory = (typeof WHATIF_CATEGORIES)[number];
+
+// ── v3: Trend input (moved from generator.ts to shared types) ──
+
+export interface TrendInput {
+  title: string;
+  traffic: string;
+  relatedQueries: string[];
+  url: string;
+}
+
+// ── v3: Theory engine ──
+
+export type SectionBuilder = (trend: TrendInput, mood: Mood) => string;
+
+export type OutcomeSet = { label: string; description: string }[];
+
+export interface Theory {
+  id: string;
+  name: string;
+  group: string;
+  voice: string;
+  rhythm: string;
+  readerRelationship: string;
+  sections: SectionBuilder[];
+  outcomes: OutcomeSet[];
+  affinities: Record<string, number>;
+  keywords: string[];
+}
+
+// ── v3: Mood system ──
+
+export interface Mood {
+  id: string;
+  name: string;
+  group: string;
+  feel: string;
+  wordTemperature: string[];
+  sentenceRhythm: string;
+  openingEnergy: string;
+  punctuationStyle: string;
+  readerExitState: string;
+}
+
+// ── v3: Score breakdown ──
+
+export interface ScoreBreakdown {
+  theoryScore: number;
+  moodScore: number;
+  affinityHit: number;
+  keywordHits: string[];
+}
