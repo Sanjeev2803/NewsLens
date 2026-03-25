@@ -295,7 +295,7 @@ function WorldMapSVG({
       />
 
       {/* Country shapes */}
-      {geoData?.features.map((feat) => {
+      {geoData?.features.map((feat, idx) => {
         const code = numericToCode.get(String(feat.id));
         const isTracked = code && ACTIVE_NUMERIC_IDS.has(String(feat.id));
         const hotspot = code ? hotspotMap.get(code) : null;
@@ -319,7 +319,7 @@ function WorldMapSVG({
 
         return (
           <path
-            key={String(feat.id)}
+            key={feat.id != null ? String(feat.id) : `feat-${idx}`}
             d={pathGen(feat as GeoPermissibleObjects) || ""}
             fill={fill}
             stroke={stroke}

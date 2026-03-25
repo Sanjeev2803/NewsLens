@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(getCacheStats());
   }
 
+
   const cacheKey = `news:${category}:${country}:${lang}`;
 
   try {
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
           category,
         });
       },
-      { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
+      { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 }
     );
 
     // ── Background image enrichment (runs after response is sent) ──
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
         try {
           const enriched = await enrichArticleImages(articlesSnapshot);
           const enrichedPayload = { ...result, articles: enriched };
-          await setCacheEntry(cacheKey, enrichedPayload, { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 });
+          await setCacheEntry(cacheKey, enrichedPayload, { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 });
         } catch (err) {
           console.warn("[enrich] background enrichment failed:", err);
         } finally {

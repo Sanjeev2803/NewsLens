@@ -239,6 +239,10 @@ const CATEGORY_RSS: Record<string, { name: string; url: string }[]> = {
     { name: "ESPN", url: "https://www.espn.com/espn/rss/news" },
     { name: "BBC Cricket", url: "https://feeds.bbci.co.uk/sport/cricket/rss.xml" },
     { name: "ESPNcricinfo", url: "https://www.espncricinfo.com/rss/content/story/feeds/0.xml" },
+    { name: "NDTV Sports", url: "https://feeds.feedburner.com/ndtvsports-latest" },
+    { name: "Times of India Sports", url: "https://timesofindia.indiatimes.com/rssfeeds/4719148.cms" },
+    { name: "Cricbuzz", url: "https://www.cricbuzz.com/static/rss/livescore.xml" },
+    { name: "Indian Express Sports", url: "https://indianexpress.com/section/sports/feed/" },
   ],
   technology: [
     { name: "BBC Tech", url: "https://feeds.bbci.co.uk/news/technology/rss.xml" },
@@ -280,8 +284,8 @@ const CATEGORY_RSS: Record<string, { name: string; url: string }[]> = {
 function getRSSFeeds(category: string, country: string): { name: string; url: string }[] {
   // Category-specific feeds
   if (category !== "general" && CATEGORY_RSS[category]) {
-    // Add country-specific feeds too for context
-    return [...(CATEGORY_RSS[category] || []), ...(COUNTRY_RSS[country]?.slice(0, 1) || [])];
+    // Category-specific only — don't mix in general country feeds
+    return CATEGORY_RSS[category] || [];
   }
   // General: use country-specific feeds
   return COUNTRY_RSS[country] || COUNTRY_RSS.in;
@@ -296,7 +300,7 @@ async function fetchSingleRSS(feedUrl: string, sourceName: string): Promise<News
     const items = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
     const arr = Array.isArray(items) ? items : [items];
 
-    return arr.slice(0, 8).map((item: any) => {
+    return arr.slice(0, 12).map((item: any) => {
       const image = extractRSSImage(item);
       const link = typeof item.link === "object" ? item.link["@_href"] || "" : String(item.link || item.guid || "");
 
@@ -330,7 +334,7 @@ export async function fetchRSSFeeds(params: FetchParams): Promise<NewsArticle[]>
     if (r.status === "fulfilled") articles.push(...r.value);
   }
   articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  return articles.slice(0, params.max);
+  return articles;
 }
 
 
@@ -384,10 +388,19 @@ export async function fetchAllNews(params: FetchParams): Promise<{
   const allArticles: NewsArticle[] = [];
   const activeSources: string[] = [];
 
-  const allResults = await Promise.allSettled([
-    fetchGoogleNews(params).then((a) => ({ name: "Google News", articles: a })),
+  // For specific categories, use ONLY curated RSS feeds — Google News topic pages
+  // return mixed/irrelevant content (e.g., politics articles under "sports" for India).
+  // For "general", use both sources.
+  const isSpecificCategory = params.category !== "general" && CATEGORY_RSS[params.category];
+
+  const fetchJobs = [
     fetchRSSFeeds(params).then((a) => ({ name: "RSS Feeds", articles: a })),
-  ]);
+  ];
+  if (!isSpecificCategory) {
+    fetchJobs.push(fetchGoogleNews(params).then((a) => ({ name: "Google News", articles: a })));
+  }
+
+  const allResults = await Promise.allSettled(fetchJobs);
 
   for (const r of allResults) {
     if (r.status === "fulfilled" && r.value.articles.length > 0) {
@@ -414,13 +427,8 @@ export async function fetchAllNews(params: FetchParams): Promise<{
   // Quality filter — remove vague, shallow, clickbait articles
   const quality = unique.filter(isQualityArticle);
 
-  // Sort: articles WITH images first, then by date
-  quality.sort((a, b) => {
-    // Prioritize articles with images
-    if (a.image && !b.image) return -1;
-    if (!a.image && b.image) return 1;
-    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-  });
+  // Sort by recency — most recent first. Images are a bonus, not a requirement.
+  quality.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
   // Count fresh articles (within last hour)
   const oneHourAgo = Date.now() - 60 * 60 * 1000;

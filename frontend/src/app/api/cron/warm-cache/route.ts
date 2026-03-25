@@ -25,18 +25,27 @@ import { assembleNewsFeed } from "@/lib/newsAssemble";
 export const runtime = "nodejs";
 export const maxDuration = 120; // Allow up to 120s for parallel pre-fetching
 
-// Most popular country+lang combos to pre-fetch
+// Most popular country+lang+category combos to pre-fetch
+// Includes specific categories that users actually browse
 const WARM_COMBOS = [
+  // India — general + popular categories
   { country: "in", lang: "en", category: "general" },
+  { country: "in", lang: "en", category: "sports" },
+  { country: "in", lang: "en", category: "technology" },
+  { country: "in", lang: "en", category: "entertainment" },
+  { country: "in", lang: "en", category: "business" },
   { country: "in", lang: "ta", category: "general" },
   { country: "in", lang: "te", category: "general" },
   { country: "in", lang: "hi", category: "general" },
+  // US + UK — general + sports
   { country: "us", lang: "en", category: "general" },
+  { country: "us", lang: "en", category: "sports" },
   { country: "gb", lang: "en", category: "general" },
+  { country: "gb", lang: "en", category: "sports" },
 ];
 
-const NEWS_TTL = { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 };
-const SOCIAL_TTL = { ttlMs: 5 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 };
+const NEWS_TTL = { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 };
+const SOCIAL_TTL = { ttlMs: 3 * 60 * 1000, staleGraceMs: 3 * 60 * 1000 };
 
 export async function GET(req: NextRequest) {
   // ── Auth check — required in production, optional in dev ──

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /*
-  Global middleware — runs on every request.
+  Global proxy — runs on every matched request.
   - CORS headers on API routes
   - Input sanitization on query params
+  Migrated from middleware.ts for Next.js 16 compatibility.
 */
 
 const ALLOWED_PARAMS: Record<string, RegExp> = {
@@ -28,7 +29,7 @@ const ALLOWED_PARAMS: Record<string, RegExp> = {
   description: /^.{0,1000}$/,
 };
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Only apply sanitization + CORS to API routes

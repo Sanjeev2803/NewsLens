@@ -234,6 +234,31 @@ export function getCacheStats() {
 /**
  * Directly set a cache entry (used by cron pre-fetcher to warm cache).
  */
+/** Clear a cache entry from both memory and Redis */
+export async function clearCacheEntry(key: string): Promise<void> {
+  memStore.delete(key);
+  const r = getRedis();
+  if (r) {
+    try { await r.del(key); } catch { /* non-critical */ }
+  }
+}
+
+/** Clear all news cache entries (useful for source config changes) */
+export async function clearNewsCacheEntries(): Promise<void> {
+  for (const key of memStore.keys()) {
+    if (key.startsWith("news:")) memStore.delete(key);
+  }
+  const r = getRedis();
+  if (r) {
+    try {
+      const keys = await r.keys("news:*");
+      if (keys.length > 0) {
+        for (const k of keys) await r.del(k);
+      }
+    } catch { /* non-critical */ }
+  }
+}
+
 export async function setCacheEntry<T>(
   key: string,
   data: T,

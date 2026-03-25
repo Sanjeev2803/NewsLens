@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchGoogleTrends } from "@/lib/regionalSources";
+// Google Trends fetch is inlined below with cache: "no-store" for cron freshness
 import { generateScenarios } from "@/lib/whatif/generator";
 import { createClient } from "@supabase/supabase-js";
 import { isSafeUrl } from "@/lib/ssrf";
@@ -14,23 +14,26 @@ import { isSafeUrl } from "@/lib/ssrf";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-// ── AI Cartoon Image Generation (Gemini 2.5 Flash Image) ──
+// ── AI Image Generation (Gemini 2.5 Flash Image) ──
+// Images should be contextually relevant to the specific topic — show actual brands,
+// logos, icons, and visual identities related to the trend. Not generic cartoons.
 
-const CARTOON_STYLE = "colorful cartoon illustration, Amul topical ad style, vibrant colors, bold outlines, editorial cartoon, no text, no watermark";
+const IMAGE_STYLE = "photorealistic editorial illustration, vibrant colors, dramatic lighting, cinematic composition, no text overlay, no watermark";
 
 const CATEGORY_SCENE: Record<string, string> = {
-  sports: "stadium crowd cheering, dynamic action pose, sports field",
-  politics: "parliament building, political podium, flags waving",
-  economy: "stock market charts, coins and currency, city skyline",
-  tech: "futuristic gadgets, glowing screens, circuit boards",
-  entertainment: "movie camera, stage lights, red carpet",
-  society: "diverse crowd, city life, nature and buildings",
-  general: "newspaper headlines, globe, magnifying glass",
+  sports: "sports arena atmosphere, team colors and jerseys, action energy",
+  politics: "government architecture, national symbols, diplomatic setting",
+  economy: "financial district, market visualization, currency and data",
+  tech: "product design, silicon and screens, innovation aesthetic",
+  entertainment: "cinematic lighting, cultural icons, stage and screen",
+  society: "urban landscape, human stories, community and movement",
+  general: "editorial photography, news desk, global perspective",
 };
 
 function buildCartoonPrompt(topic: string, category: string): string {
   const scene = CATEGORY_SCENE[category] || CATEGORY_SCENE.general;
-  return `${CARTOON_STYLE}, ${topic}, ${scene}`;
+  // Topic goes first so the image is specific to the actual trend (RCB, OnePlus, etc.)
+  return `${topic}, ${scene}, ${IMAGE_STYLE}`;
 }
 
 async function generateCartoonImage(topic: string, category: string): Promise<string | null> {
@@ -181,8 +184,37 @@ export async function GET(req: NextRequest) {
 
   for (const { geo, country } of GEOS) {
     try {
-      // Fetch current trending topics
-      const trends = await fetchGoogleTrends(geo);
+      // Fetch current trending topics (bypass Next.js cache for cron)
+      let trends;
+      try {
+        const rssUrl = `https://trends.google.com/trending/rss?geo=${geo}`;
+        const rssRes = await fetch(rssUrl, {
+          cache: "no-store",
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsLens/1.0)" },
+        });
+        if (!rssRes.ok) { results.push({ geo, generated: 0, skipped: 0, error: `RSS ${rssRes.status}` }); continue; }
+        const xml = await rssRes.text();
+        const items: { title: string; traffic: string; relatedQueries: string[]; url: string }[] = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let m;
+        while ((m = itemRegex.exec(xml)) !== null) {
+          const item = m[1];
+          const title = item.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/)?.[1]?.replace(/<!\[CDATA\[|\]\]>/g, "") || "";
+          const traffic = item.match(/<ht:approx_traffic>(.*?)<\/ht:approx_traffic>/)?.[1] || "";
+          const link = item.match(/<link>(.*?)<\/link>/)?.[1] || "";
+          const newsItems = item.match(/<ht:news_item_title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ht:news_item_title>/g) || [];
+          items.push({
+            title,
+            traffic,
+            relatedQueries: newsItems.map(n => n.replace(/<\/?ht:news_item_title>/g, "").replace(/<!\[CDATA\[|\]\]>/g, "").trim()).slice(0, 3),
+            url: link,
+          });
+        }
+        trends = items;
+      } catch (fetchErr) {
+        results.push({ geo, generated: 0, skipped: 0, error: `Fetch: ${String(fetchErr).slice(0, 80)}` });
+        continue;
+      }
       if (!trends || trends.length === 0) {
         results.push({ geo, generated: 0, skipped: 0, error: "No trends returned" });
         continue;
@@ -208,7 +240,7 @@ export async function GET(req: NextRequest) {
 
       let generated = 0;
       for (const scenario of scenarios) {
-        const { outcomes, body, content_type, read_time, ...rest } = scenario;
+        const { outcomes, body, content_type, read_time, theory: _t, mood: _m, scoreBreakdown: _s, ...rest } = scenario;
 
         // Generate AI cartoon cover image via Pollinations
         let cover_image: string | null = null;

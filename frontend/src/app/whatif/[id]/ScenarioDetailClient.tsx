@@ -88,7 +88,7 @@ function ArticleBody({ body }: { body: string }) {
               }`}
             >
               {cells.map((cell, j) => (
-                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-mist-gray/60"}`}>
+                <span key={j} className={`flex-1 ${j === 0 ? "text-scroll-cream/80" : "text-mist-gray/75"}`}>
                   {cell}
                 </span>
               ))}
@@ -102,7 +102,7 @@ function ArticleBody({ body }: { body: string }) {
           return (
             <div key={i} className="flex items-start gap-3 pl-1">
               <span className="w-1 h-1 rounded-full bg-mist-gray/30 mt-[10px] shrink-0" />
-              <span className="text-mist-gray/70 font-body text-[15px] leading-[1.85]"
+              <span className="text-mist-gray/85 font-body text-[15px] leading-[1.85]"
                 dangerouslySetInnerHTML={{ __html: formatInline(text) }}
               />
             </div>
@@ -112,8 +112,8 @@ function ArticleBody({ body }: { body: string }) {
         // Italic callout (*text*) — pull quote with left border
         if (trimmed.startsWith("*") && trimmed.endsWith("*")) {
           return (
-            <blockquote key={i} className="my-8 pl-5 border-l-2 border-white/[0.08]">
-              <p className="text-mist-gray/50 font-body text-sm italic leading-relaxed">
+            <blockquote key={i} className="my-8 pl-5 border-l-2 border-chakra-orange/30">
+              <p className="text-scroll-cream/70 font-body text-sm italic leading-relaxed">
                 {trimmed.slice(1, -1)}
               </p>
             </blockquote>
@@ -122,7 +122,7 @@ function ArticleBody({ body }: { body: string }) {
 
         // Regular paragraph
         return (
-          <p key={i} className="text-mist-gray/70 font-body text-[15px] leading-[1.85]"
+          <p key={i} className="text-mist-gray/85 font-body text-[15px] leading-[1.85]"
             dangerouslySetInnerHTML={{ __html: formatInline(trimmed) }}
           />
         );
@@ -200,7 +200,7 @@ export default function ScenarioDetailClient() {
             {/* Back */}
             <Link
               href="/whatif"
-              className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-mist-gray/40 hover:text-amaterasu-purple transition-colors mb-6"
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-mist-gray/55 hover:text-amaterasu-purple transition-colors mb-6"
             >
               <IconArrowLeft size={13} />
               Back to What-If Dimension
@@ -219,7 +219,7 @@ export default function ScenarioDetailClient() {
                 {contentLabel.label}
               </span>
 
-              <span className="px-2 py-0.5 rounded bg-white/[0.05] text-[10px] font-mono uppercase tracking-wider text-mist-gray/60">
+              <span className="px-2 py-0.5 rounded bg-white/[0.05] text-[10px] font-mono uppercase tracking-wider text-mist-gray/75">
                 {scenario.category}
               </span>
 
@@ -257,7 +257,7 @@ export default function ScenarioDetailClient() {
             {/* Description */}
             {scenario.description && (
               <motion.p
-                className="text-mist-gray/50 font-body text-base md:text-lg mb-6 max-w-3xl"
+                className="text-mist-gray/65 font-body text-base md:text-lg mb-6 max-w-3xl"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
@@ -273,7 +273,7 @@ export default function ScenarioDetailClient() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.25 }}
             >
-              <div className="flex items-center gap-4 text-[11px] font-mono text-mist-gray/40">
+              <div className="flex items-center gap-4 text-[11px] font-mono text-mist-gray/55">
                 <span>
                   {scenario.is_ai_generated ? "NewsLens AI" : scenario.profile?.display_name || "Anonymous"}
                 </span>
@@ -345,7 +345,7 @@ export default function ScenarioDetailClient() {
               {scenario.body ? (
                 <ArticleBody body={scenario.body} />
               ) : (
-                <p className="text-mist-gray/50 font-body text-center py-10">
+                <p className="text-mist-gray/65 font-body text-center py-10">
                   No article content yet.
                 </p>
               )}
@@ -394,7 +394,7 @@ export default function ScenarioDetailClient() {
                           {scenario.impact[key]}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-mist-gray/40">{label}</span>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mist-gray/55">{label}</span>
                     </div>
                   ))}
                 </div>
@@ -423,7 +423,7 @@ export default function ScenarioDetailClient() {
                         </div>
                         <div className="pb-5">
                           <p className="text-sm font-heading text-scroll-cream/80">{node.label}</p>
-                          {node.description && <p className="text-[11px] text-mist-gray/40 mt-0.5">{node.description}</p>}
+                          {node.description && <p className="text-[11px] text-mist-gray/55 mt-0.5">{node.description}</p>}
                           <span className="text-[9px] font-mono" style={{ color: probColor }}>{node.probability}% probability</span>
                         </div>
                       </div>

@@ -119,14 +119,7 @@ function generateTitle(trend: TrendInput, theory: Theory, mood: Mood): string {
   const group = theory.group;
   const pool = templates[group] || templates.economics_strategy;
   const fn = pool[seed % pool.length];
-  // Incorporate mood feel into title variation
-  const base = fn(trend.title);
-  // Add mood-influenced suffix for some seeds
-  if (seed % 3 === 0) {
-    const moodWord = mood.wordTemperature[seed % mood.wordTemperature.length];
-    return `${base} (${moodWord})`;
-  }
-  return base;
+  return fn(trend.title);
 }
 
 // ── Helper: derive content_type from theory group ──
@@ -139,6 +132,37 @@ function deriveContentType(theory: Theory): string {
     power_society: "article",
   };
   return map[theory.group] || "article";
+}
+
+// ── Helper: generate editorial description ──
+
+function generateDescription(trend: TrendInput, theory: Theory, mood: Mood): string {
+  const seed = hashStr(trend.title);
+  const related = trend.relatedQueries[0] || trend.title;
+  const descriptions: Record<string, string[]> = {
+    economics_strategy: [
+      `The strategic implications of ${trend.title} run deeper than the headlines suggest.`,
+      `Behind ${trend.title} lies a strategic calculation most observers are missing.`,
+      `${trend.title} isn't just news — it's a move in a larger game. Here's the board.`,
+    ],
+    psychology_behavior: [
+      `Everyone has a take on ${trend.title}. The data tells a different story.`,
+      `The collective reaction to ${trend.title} reveals more than the event itself.`,
+      `${trend.title} is a mirror — what you see in it says more about you than the news.`,
+    ],
+    systems_chaos: [
+      `${trend.title} is the visible part. The chain reaction happening underneath is what matters.`,
+      `Trace the thread from ${trend.title} far enough and the picture changes completely.`,
+      `The system just got a shock. Here's what ${trend.title} triggers next.`,
+    ],
+    power_society: [
+      `${trend.title} shifts the landscape in ways that won't be obvious for weeks.`,
+      `Who wins and who loses from ${trend.title}? The answer isn't what you'd expect.`,
+      `The real story behind ${trend.title} isn't in the press release.`,
+    ],
+  };
+  const pool = descriptions[theory.group] || descriptions.economics_strategy;
+  return pool[seed % pool.length];
 }
 
 // ── Main generator ──
@@ -184,7 +208,7 @@ export function generateScenarios(trends: TrendInput[], country: string = "in"):
 
     return {
       title,
-      description: `${theory.voice} — ${mood.feel}`,
+      description: generateDescription(trend, theory, mood),
       body,
       content_type: contentType,
       read_time: readTime,
