@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
         limit,
         hasMore: total > offset + limit,
       },
-      { headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" } }
+      { headers: { "Cache-Control": "public, max-age=0, s-maxage=10, stale-while-revalidate=10" } }
     );
   } catch (err) {
     console.error("[whatif] Error:", err);

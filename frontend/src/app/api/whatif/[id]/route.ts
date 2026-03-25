@@ -75,7 +75,7 @@ export async function GET(
         impact,
         evidence: evidenceResult.data || [],
       },
-      { headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" } }
+      { headers: { "Cache-Control": "public, max-age=0, s-maxage=10, stale-while-revalidate=10" } }
     );
   } catch (err) {
     console.error("[whatif] Detail error:", err);
