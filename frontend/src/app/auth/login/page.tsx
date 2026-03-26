@@ -49,16 +49,15 @@ export default function LoginPage() {
 
   async function handleOAuth(provider: "google" | "github") {
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
       },
     });
+    if (oauthError) {
+      setError(oauthError.message);
+    }
   }
 
   return (
