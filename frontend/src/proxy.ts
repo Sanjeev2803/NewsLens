@@ -17,6 +17,7 @@ const ALLOWED_PARAMS: Record<string, RegExp> = {
   _cache: /^[a-z]+$/,
   // What-If params
   sort: /^[a-z_]{2,20}$/,
+  source: /^[a-z]{2,10}$/,
   page: /^\d{1,4}$/,
   limit: /^\d{1,3}$/,
   // Whatif-image proxy params

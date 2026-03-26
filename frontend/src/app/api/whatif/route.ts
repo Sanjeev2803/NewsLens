@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") || "all";
   const sort = searchParams.get("sort") || "trending";
+  const source = searchParams.get("source") || "all"; // "all" | "ai" | "community"
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
   const offset = (page - 1) * limit;
@@ -44,6 +45,8 @@ export async function GET(req: NextRequest) {
 
       if (category !== "all") q = q.eq("category", category);
       if (countryFilter) q = q.eq("country", countryFilter);
+      if (source === "ai") q = q.eq("is_ai_generated", true);
+      if (source === "community") q = q.eq("is_ai_generated", false);
 
       switch (sort) {
         case "newest":

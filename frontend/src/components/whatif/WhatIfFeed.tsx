@@ -10,10 +10,11 @@ interface WhatIfFeedProps {
   category: string;
   sort: string;
   country?: string;
+  source?: "all" | "ai" | "community";
   onStatsUpdate?: (scenarios: Scenario[], total: number) => void;
 }
 
-export default function WhatIfFeed({ category, sort, country = "in", onStatsUpdate }: WhatIfFeedProps) {
+export default function WhatIfFeed({ category, sort, country = "in", source = "all", onStatsUpdate }: WhatIfFeedProps) {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -31,7 +32,7 @@ export default function WhatIfFeed({ category, sort, country = "in", onStatsUpda
     setLoading(true);
     setError(null);
     setPage(1);
-    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`, {
+    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&source=${source}&page=1&limit=20`, {
       signal: controller.signal,
     })
       .then((r) => {
@@ -54,13 +55,13 @@ export default function WhatIfFeed({ category, sort, country = "in", onStatsUpda
       });
 
     return () => controller.abort();
-  }, [category, sort, country, onStatsUpdate]);
+  }, [category, sort, country, source, onStatsUpdate]);
 
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
     setLoading(true);
     const nextPage = page + 1;
-    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=${nextPage}&limit=20`)
+    fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&source=${source}&page=${nextPage}&limit=20`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load more");
         return r.json();
@@ -98,7 +99,7 @@ export default function WhatIfFeed({ category, sort, country = "in", onStatsUpda
           onClick={() => {
             setError(null);
             setLoading(true);
-            fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&page=1&limit=20`)
+            fetch(`/api/whatif?category=${category}&sort=${sort}&country=${country}&source=${source}&page=1&limit=20`)
               .then((r) => { if (!r.ok) throw new Error("Retry failed"); return r.json(); })
               .then((data) => {
                 setScenarios(data.scenarios || []);

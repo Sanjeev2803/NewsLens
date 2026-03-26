@@ -1,17 +1,14 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
-type Theme = "dark" | "light"; // dark = Itachi, light = Hokage
+/*
+  Theme Provider — locked to dark mode (Itachi theme).
+  Kept as a provider for API compatibility with components that call useTheme().
+*/
 
 interface ThemeContextValue {
-  theme: Theme;
+  theme: "dark";
   toggleTheme: () => void;
   isItachi: boolean;
 }
@@ -27,30 +24,13 @@ export function useTheme() {
 }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
-
   useEffect(() => {
-    const saved = localStorage.getItem("newslens-theme") as Theme | null;
-    if (saved) setTheme(saved);
+    document.documentElement.classList.remove("light");
+    document.documentElement.classList.add("dark");
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("newslens-theme", theme);
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(theme);
-  }, [theme]);
-
-  const toggleTheme = () =>
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
-
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        toggleTheme,
-        isItachi: theme === "dark",
-      }}
-    >
+    <ThemeContext.Provider value={{ theme: "dark", toggleTheme: () => {}, isItachi: true }}>
       {children}
     </ThemeContext.Provider>
   );

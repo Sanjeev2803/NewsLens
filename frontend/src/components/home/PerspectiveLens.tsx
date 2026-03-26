@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { IconEye, IconBrandReddit, IconBrandYoutube, IconWorld, IconBook, IconRefresh, IconExternalLink } from "@tabler/icons-react";
+import { IconEye, IconBrandReddit, IconBrandYoutube, IconWorld, IconBook, IconRefresh, IconExternalLink, IconArrowRight } from "@tabler/icons-react";
 import { useGeoCountry } from "@/lib/useGeoCountry";
 
 /*
   Perspective Lens — Multi-platform story comparison
   Pick a trending topic → instantly see how Reddit, YouTube, Bluesky, and Wikipedia
   cover the same topic. Shows different angles on the same story.
-
-  No other news aggregator does this.
 */
 
 interface PlatformView {
@@ -24,16 +22,11 @@ interface PlatformView {
   author: string;
 }
 
-interface TopicData {
-  topic: string;
-  views: PlatformView[];
-}
-
 const PLATFORM_CONFIG = {
-  reddit: { icon: IconBrandReddit, color: "#FF4500", label: "Reddit" },
-  youtube: { icon: IconBrandYoutube, color: "#FF0000", label: "YouTube" },
-  bluesky: { icon: IconWorld, color: "#0085FF", label: "Bluesky" },
-  wikipedia: { icon: IconBook, color: "#636466", label: "Wikipedia" },
+  reddit: { icon: IconBrandReddit, color: "#FF4500", label: "Reddit", angle: "Community Discussion" },
+  youtube: { icon: IconBrandYoutube, color: "#FF0000", label: "YouTube", angle: "Video Coverage" },
+  bluesky: { icon: IconWorld, color: "#0085FF", label: "Bluesky", angle: "Real-time Takes" },
+  wikipedia: { icon: IconBook, color: "#636466", label: "Wikipedia", angle: "Encyclopedic Context" },
 };
 
 function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
@@ -51,7 +44,7 @@ function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
       transition={{ duration: 0.35, delay: index * 0.08 }}
       whileHover={{ y: -3 }}
     >
-      {/* Platform header */}
+      {/* Platform header with angle label */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.04]" style={{ backgroundColor: `${config.color}08` }}>
         <div
           className="w-6 h-6 rounded-md flex items-center justify-center"
@@ -59,9 +52,12 @@ function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
         >
           <Icon size={14} style={{ color: config.color }} />
         </div>
-        <span className="text-xs font-heading font-semibold" style={{ color: config.color }}>{config.label}</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-heading font-semibold block" style={{ color: config.color }}>{config.label}</span>
+          <span className="text-[9px] text-mist-gray/30 block">{config.angle}</span>
+        </div>
         {view.score > 0 && (
-          <span className="ml-auto text-[10px] font-mono text-mist-gray/40">
+          <span className="text-[10px] font-mono text-mist-gray/40 flex-shrink-0">
             {view.score > 1000 ? `${(view.score / 1000).toFixed(1)}k` : view.score}
           </span>
         )}
@@ -80,7 +76,10 @@ function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
       {/* Footer */}
       <div className="px-4 py-2.5 flex items-center justify-between border-t border-white/[0.03]">
         <span className="text-[10px] text-mist-gray/30 truncate max-w-[60%]">{view.author}</span>
-        <IconExternalLink size={12} className="text-mist-gray/20 group-hover:text-white/40 transition-colors" />
+        <div className="flex items-center gap-1 text-mist-gray/20 group-hover:text-white/40 transition-colors">
+          <span className="text-[9px]">Read</span>
+          <IconExternalLink size={10} />
+        </div>
       </div>
 
       {/* Bottom glow */}
@@ -92,6 +91,18 @@ function PlatformCard({ view, index }: { view: PlatformView; index: number }) {
   );
 }
 
+function extractKeywords(text: string): string[] {
+  // Stop words to ignore
+  const stopWords = new Set(["the", "and", "for", "that", "this", "with", "from", "have", "been", "will", "what", "when", "where", "which", "about", "after", "before", "into", "over", "than", "them", "then", "they", "their", "there", "these", "those", "your", "more", "some", "could", "would", "should", "also", "just", "like", "very", "much", "most", "only", "other", "each", "back", "here"]);
+
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w))
+    .slice(0, 6);
+}
+
 export default function PerspectiveLens() {
   const country = useGeoCountry("in");
   const [topics, setTopics] = useState<string[]>([]);
@@ -99,55 +110,39 @@ export default function PerspectiveLens() {
   const [views, setViews] = useState<PlatformView[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [platformCount, setPlatformCount] = useState(0);
 
-  // Fetch trending topics on mount
-  useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const res = await fetch(`/api/news?category=general&country=${country}&lang=en&max=5`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const headlines = (data.articles || [])
-          .slice(0, 5)
-          .map((a: { title: string }) => a.title)
-          .filter(Boolean);
-        setTopics(headlines);
-        if (headlines.length > 0 && !activeTopic) {
-          loadPerspectives(headlines[0]);
-        }
-      } catch {
-        // topics remain empty — section shows nothing
-      } finally {
-        setInitialLoad(false);
-      }
-    }
-    fetchTopics();
-  }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function loadPerspectives(topic: string) {
+  const loadPerspectives = useCallback(async (topic: string) => {
     setActiveTopic(topic);
     setLoading(true);
     setViews([]);
+    setPlatformCount(0);
 
     try {
-      // Fetch social data — the API already has Reddit, Bluesky, YouTube, Wikipedia
       const res = await fetch(`/api/social?country=${country}&lang=en&category=general`);
       if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       const posts = data.posts || [];
 
-      // Find posts related to this topic (keyword match)
-      const keywords = topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3).slice(0, 4);
+      // Better keyword extraction — filter stop words, keep meaningful terms
+      const keywords = extractKeywords(topic);
 
       const matchedViews: PlatformView[] = [];
       const seenPlatforms = new Set<string>();
 
-      // First pass: find related posts
-      for (const post of posts) {
+      // Score each post by keyword relevance
+      const scored = posts
+        .map((post: { platform: string; title: string; text: string; url: string; score: number; author: string }) => {
+          const postText = `${post.title} ${post.text || ""}`.toLowerCase();
+          const matches = keywords.filter(kw => postText.includes(kw)).length;
+          return { ...post, relevance: matches };
+        })
+        .sort((a: { relevance: number; score: number }, b: { relevance: number; score: number }) => b.relevance - a.relevance || b.score - a.score);
+
+      // First pass: best match per platform (min 2 keyword hits for strong match)
+      for (const post of scored) {
         if (seenPlatforms.has(post.platform)) continue;
-        const postText = `${post.title} ${post.text}`.toLowerCase();
-        const matches = keywords.filter((kw: string) => postText.includes(kw)).length;
-        if (matches >= 1) {
+        if (post.relevance >= 2) {
           const config = PLATFORM_CONFIG[post.platform as keyof typeof PLATFORM_CONFIG];
           if (config) {
             matchedViews.push({
@@ -165,10 +160,30 @@ export default function PerspectiveLens() {
         }
       }
 
-      // Second pass: fill missing platforms with top posts
+      // Second pass: weaker matches (1 keyword) for remaining platforms
+      for (const post of scored) {
+        if (seenPlatforms.has(post.platform) || matchedViews.length >= 4) break;
+        if (post.relevance >= 1) {
+          const config = PLATFORM_CONFIG[post.platform as keyof typeof PLATFORM_CONFIG];
+          if (config) {
+            matchedViews.push({
+              platform: post.platform,
+              icon: config.icon,
+              color: config.color,
+              title: post.title,
+              text: post.text || post.title,
+              url: post.url,
+              score: post.score || 0,
+              author: post.author || config.label,
+            });
+            seenPlatforms.add(post.platform);
+          }
+        }
+      }
+
+      // Third pass: fill remaining with top posts per platform
       for (const post of posts) {
-        if (seenPlatforms.has(post.platform)) continue;
-        if (matchedViews.length >= 4) break;
+        if (seenPlatforms.has(post.platform) || matchedViews.length >= 4) break;
         const config = PLATFORM_CONFIG[post.platform as keyof typeof PLATFORM_CONFIG];
         if (config) {
           matchedViews.push({
@@ -185,55 +200,104 @@ export default function PerspectiveLens() {
         }
       }
 
-      setViews(matchedViews.slice(0, 4));
+      const final = matchedViews.slice(0, 4);
+      setViews(final);
+      setPlatformCount(final.filter(v => {
+        const postText = `${v.title} ${v.text}`.toLowerCase();
+        return keywords.some(kw => postText.includes(kw));
+      }).length);
     } catch {
       // silent
     } finally {
       setLoading(false);
     }
-  }
+  }, [country]);
+
+  // Fetch trending topics on mount
+  useEffect(() => {
+    async function fetchTopics() {
+      try {
+        const res = await fetch(`/api/news?category=general&country=${country}&lang=en&max=8`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const headlines = (data.articles || [])
+          .slice(0, 8)
+          .map((a: { title: string }) => a.title)
+          .filter(Boolean);
+        setTopics(headlines);
+        if (headlines.length > 0) {
+          loadPerspectives(headlines[0]);
+        }
+      } catch {
+        // topics remain empty
+      } finally {
+        setInitialLoad(false);
+      }
+    }
+    fetchTopics();
+  }, [country, loadPerspectives]);
 
   if (initialLoad) return null;
+  if (topics.length === 0) return null;
 
   return (
     <section className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-rasengan-blue/10 border border-rasengan-blue/20 flex items-center justify-center">
-          <IconEye size={16} className="text-rasengan-blue" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-rasengan-blue/10 border border-rasengan-blue/20 flex items-center justify-center">
+            <IconEye size={16} className="text-rasengan-blue" />
+          </div>
+          <div>
+            <h2 className="text-lg font-heading font-bold text-white">Perspective Lens</h2>
+            <p className="text-[11px] text-mist-gray/40">Same story, different platforms — see every angle</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-heading font-bold text-white">Perspective Lens</h2>
-          <p className="text-[11px] text-mist-gray/40">Same story, different platforms — see every angle</p>
-        </div>
+        {platformCount > 0 && !loading && (
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-rasengan-blue/5 border border-rasengan-blue/10">
+            <span className="text-[10px] text-rasengan-blue/60 font-mono">{platformCount} platforms covering this</span>
+          </div>
+        )}
       </div>
 
-      {/* Topic selector */}
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
-        {topics.map((topic, i) => (
-          <button
-            key={i}
-            onClick={() => loadPerspectives(topic)}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-heading transition-all border max-w-[280px] text-left ${
-              activeTopic === topic
-                ? "bg-rasengan-blue/10 text-white border-rasengan-blue/25"
-                : "bg-transparent text-mist-gray/50 border-white/[0.04] hover:text-white/70 hover:border-white/[0.08]"
-            }`}
-          >
-            <span className="line-clamp-1">{topic}</span>
-          </button>
-        ))}
-        {topics.length > 0 && (
+      {/* Topic selector — horizontal scroll with better styling */}
+      <div className="relative mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+          {topics.map((topic, i) => (
+            <button
+              key={i}
+              onClick={() => loadPerspectives(topic)}
+              className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-xs font-heading transition-all border max-w-[300px] text-left ${
+                activeTopic === topic
+                  ? "bg-rasengan-blue/10 text-white border-rasengan-blue/25 shadow-[0_0_12px_rgba(0,180,216,0.08)]"
+                  : "bg-transparent text-mist-gray/50 border-white/[0.04] hover:text-white/70 hover:border-white/[0.08]"
+              }`}
+            >
+              <span className="line-clamp-1">{topic}</span>
+            </button>
+          ))}
           <button
             onClick={() => {
-              const next = topics[(topics.indexOf(activeTopic || "") + 1) % topics.length];
+              const idx = topics.indexOf(activeTopic || "");
+              const next = topics[(idx + 1) % topics.length];
               if (next) loadPerspectives(next);
             }}
             className="flex-shrink-0 w-9 h-9 rounded-xl border border-white/[0.04] flex items-center justify-center text-mist-gray/30 hover:text-white/60 hover:border-white/[0.08] transition-all"
+            title="Next topic"
+          >
+            <IconArrowRight size={14} />
+          </button>
+          <button
+            onClick={() => {
+              const random = topics[Math.floor(Math.random() * topics.length)];
+              if (random && random !== activeTopic) loadPerspectives(random);
+            }}
+            className="flex-shrink-0 w-9 h-9 rounded-xl border border-white/[0.04] flex items-center justify-center text-mist-gray/30 hover:text-white/60 hover:border-white/[0.08] transition-all"
+            title="Random topic"
           >
             <IconRefresh size={14} />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Platform perspectives grid */}
@@ -253,7 +317,7 @@ export default function PerspectiveLens() {
                 animate={{ opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}
               >
-                <div className="h-12 bg-white/[0.02] border-b border-white/[0.03]" />
+                <div className="h-14 bg-white/[0.02] border-b border-white/[0.03]" />
                 <div className="p-4 space-y-2">
                   <div className="h-4 w-full rounded bg-white/[0.03]" />
                   <div className="h-4 w-3/4 rounded bg-white/[0.025]" />
