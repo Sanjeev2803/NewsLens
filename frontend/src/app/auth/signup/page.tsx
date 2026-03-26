@@ -99,10 +99,10 @@ export default function SignupPage() {
     <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold text-scroll-cream mb-2 text-center">
-          Create your account
+          Create Account
         </h1>
         <p className="text-mist-gray text-sm text-center mb-8">
-          Join the conversation on NewsLens
+          Register to vote, comment, and create predictions
         </p>
 
         {/* OAuth buttons */}
@@ -186,7 +186,7 @@ export default function SignupPage() {
         <p className="mt-6 text-center text-sm text-mist-gray">
           Already have an account?{" "}
           <Link href="/auth/login" className="text-scroll-cream hover:underline">
-            Sign in
+            Log in
           </Link>
         </p>
 

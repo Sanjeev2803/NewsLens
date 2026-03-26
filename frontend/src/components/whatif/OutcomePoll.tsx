@@ -3,7 +3,9 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { IconChartBar, IconArrowUp, IconCheck, IconLoader2 } from "@tabler/icons-react";
+import Link from "next/link";
 import type { Outcome } from "@/lib/whatif/types";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 const OUTCOME_COLORS = [
   { bar: "#7B2FBE", glow: "rgba(123,47,190,0.15)", text: "#a855f7" },
@@ -21,7 +23,9 @@ interface OutcomePollProps {
 }
 
 export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting = false }: OutcomePollProps) {
+  const { user } = useAuth();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
   const totalVotes = outcomes.reduce((sum, o) => sum + o.vote_count, 0);
   const hasVoted = !!votedOutcomeId;
   const canVote = !!onVote && !hasVoted;
@@ -62,7 +66,10 @@ export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting =
                 ${canVote ? "cursor-pointer" : "cursor-default"}
               `}
               style={isVoted ? { boxShadow: `inset 0 0 0 1px ${colors.bar}` } : undefined}
-              onClick={() => canVote && onVote?.(outcome.id)}
+              onClick={() => {
+                if (!user) { setShowSignIn(true); return; }
+                canVote && onVote?.(outcome.id);
+              }}
               onMouseEnter={() => setHoveredId(outcome.id)}
               onMouseLeave={() => setHoveredId(null)}
               whileHover={canVote ? { scale: 1.005 } : {}}
@@ -145,6 +152,16 @@ export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting =
           </span>
         )}
       </div>
+
+      {/* Sign in prompt for unauthenticated users */}
+      {showSignIn && !user && (
+        <div className="px-5 py-3 border-t border-white/[0.04] text-center">
+          <p className="text-xs text-mist-gray/40 mb-2">Sign in to cast your vote</p>
+          <Link href="/auth/login" className="inline-block px-4 py-1.5 rounded-lg bg-scroll-cream text-[#0a0a0a] text-xs font-semibold hover:bg-scroll-cream/90 transition-colors">
+            Sign in
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

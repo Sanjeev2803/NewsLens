@@ -6,7 +6,17 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import Navbar from "@/components/layout/Navbar";
-import { IconArrowLeft, IconArrowRight, IconPlus, IconTrash, IconCheck, IconPencil } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight, IconPlus, IconTrash, IconCheck, IconPencil, IconSparkles, IconLoader2 } from "@tabler/icons-react";
+
+const TONES = [
+  { value: "analytical", label: "Analytical", desc: "Data-driven, structured reasoning" },
+  { value: "fanboy", label: "Fanboy", desc: "Passionate, high energy, bold claims" },
+  { value: "personified", label: "Personified", desc: "Written as the topic itself" },
+  { value: "dramatic", label: "Dramatic", desc: "Thriller-style, builds tension" },
+  { value: "satirical", label: "Satirical", desc: "Witty, ironic, The Onion meets news" },
+  { value: "neutral", label: "Neutral", desc: "Balanced journalism, no opinion" },
+  { value: "custom", label: "Custom", desc: "Write your own tone" },
+];
 
 const CATEGORIES = [
   { value: "general", label: "General" },
@@ -138,22 +148,54 @@ function StepPrediction({
   );
 }
 
-// ── Step 2: The Story ──
+// ── Step 2: The Story (AI-powered) ──
 function StepStory({
-  description, setDescription, body, setBody, onBack, onNext,
+  title, description, setDescription, body, setBody, tone, setTone, customTone, setCustomTone, onBack, onNext,
 }: {
+  title: string;
   description: string; setDescription: (v: string) => void;
   body: string; setBody: (v: string) => void;
+  tone: string; setTone: (v: string) => void;
+  customTone: string; setCustomTone: (v: string) => void;
   onBack: () => void; onNext: () => void;
 }) {
   const [preview, setPreview] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const valid = description.trim().length >= 10;
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/whatif/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: description.trim(),
+          tone,
+          customTone: tone === "custom" ? customTone : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGenError(data.error || "Generation failed");
+      } else {
+        setBody(data.body);
+      }
+    } catch {
+      setGenError("Network error");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-scroll-cream mb-1">The Story</h2>
-        <p className="text-sm text-mist-gray/50">Give context — why does this scenario matter?</p>
+        <p className="text-sm text-mist-gray/50">Write it yourself or let AI generate based on your tone.</p>
       </div>
 
       <div>
@@ -172,10 +214,63 @@ function StepStory({
         />
       </div>
 
+      {/* Tone selector */}
+      <div>
+        <label className="block text-sm font-medium text-scroll-cream/70 mb-2">Writing Tone</label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {TONES.map(t => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTone(t.value)}
+              className={`px-3 py-2 rounded-lg text-left transition-all border ${
+                tone === t.value
+                  ? "bg-scroll-cream/10 border-scroll-cream/20"
+                  : "bg-white/[0.02] border-white/[0.04] hover:border-white/10"
+              }`}
+            >
+              <div className={`text-xs font-heading font-medium ${tone === t.value ? "text-scroll-cream" : "text-mist-gray/50"}`}>
+                {t.label}
+              </div>
+              <div className="text-[9px] text-mist-gray/30 mt-0.5">{t.desc}</div>
+            </button>
+          ))}
+        </div>
+        {tone === "custom" && (
+          <input
+            type="text"
+            value={customTone}
+            onChange={(e) => setCustomTone(e.target.value)}
+            maxLength={200}
+            placeholder="Describe your tone — e.g. 'like a cricket commentator in the last over'"
+            className="w-full mt-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-scroll-cream placeholder-mist-gray/30 text-xs focus:outline-none focus:border-white/25 transition-colors"
+          />
+        )}
+      </div>
+
+      {/* AI Generate button */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={generating || !title.trim() || !description.trim()}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600/80 to-blue-600/80 text-white text-xs font-semibold hover:from-purple-600 hover:to-blue-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {generating ? (
+            <><IconLoader2 size={14} className="animate-spin" /> Generating...</>
+          ) : (
+            <><IconSparkles size={14} /> Generate with AI</>
+          )}
+        </button>
+        <span className="text-[10px] text-mist-gray/30">Uses your title + hook + selected tone</span>
+      </div>
+      {genError && <p className="text-xs text-red-400/60">{genError}</p>}
+
+      {/* Body editor */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label htmlFor="body" className="block text-sm font-medium text-scroll-cream/70">
-            Analysis <span className="text-mist-gray/30">(optional, {body.length}/5000)</span>
+            Analysis <span className="text-mist-gray/30">({body.length}/5000)</span>
           </label>
           {body.length > 0 && (
             <button
@@ -197,8 +292,8 @@ function StepStory({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             maxLength={5000}
-            rows={6}
-            placeholder="Explain your reasoning — evidence, stats, predictions. This becomes the article body."
+            rows={8}
+            placeholder="Write your analysis or click 'Generate with AI' above..."
             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-scroll-cream placeholder-mist-gray/30 text-sm focus:outline-none focus:border-white/25 transition-colors resize-y"
           />
         )}
@@ -413,6 +508,8 @@ export default function CreateScenarioPage() {
   const [category, setCategory] = useState("general");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
+  const [tone, setTone] = useState("analytical");
+  const [customTone, setCustomTone] = useState("");
   const [outcomes, setOutcomes] = useState<Outcome[]>([
     { label: "", description: "" },
     { label: "", description: "" },
@@ -519,8 +616,11 @@ export default function CreateScenarioPage() {
               )}
               {step === 2 && (
                 <StepStory
+                  title={title}
                   description={description} setDescription={setDescription}
                   body={body} setBody={setBody}
+                  tone={tone} setTone={setTone}
+                  customTone={customTone} setCustomTone={setCustomTone}
                   onBack={() => setStep(1)}
                   onNext={() => setStep(3)}
                 />

@@ -77,10 +77,10 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold text-scroll-cream mb-2 text-center">
-          Sign in to NewsLens
+          Welcome back
         </h1>
         <p className="text-mist-gray text-sm text-center mb-8">
-          Vote, comment, and track your news journey
+          Sign in to continue your news journey
         </p>
 
         {/* OAuth buttons */}
@@ -149,9 +149,9 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-mist-gray">
-          No account?{" "}
+          New to NewsLens?{" "}
           <Link href="/auth/signup" className="text-scroll-cream hover:underline">
-            Sign up
+            Register
           </Link>
         </p>
 

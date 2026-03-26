@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { IconMessageCircle, IconSend, IconCornerDownRight, IconLoader2 } from "@tabler/icons-react";
+import { IconMessageCircle, IconSend, IconCornerDownRight, IconLoader2, IconLock } from "@tabler/icons-react";
 import { timeAgo } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import Link from "next/link";
 
 interface Comment {
   id: string;
@@ -19,6 +21,7 @@ interface CommentsProps {
 }
 
 export default function Comments({ scenarioId }: CommentsProps) {
+  const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -114,7 +117,16 @@ export default function Comments({ scenarioId }: CommentsProps) {
         </span>
       </div>
 
-      {/* Comment form */}
+      {/* Comment form — locked if not signed in */}
+      {!user ? (
+        <div className="px-5 py-6 border-b border-white/[0.04] text-center">
+          <IconLock size={20} className="mx-auto mb-2 text-mist-gray/20" />
+          <p className="text-sm text-mist-gray/40 mb-3">Sign in to join the discussion</p>
+          <Link href="/auth/login" className="inline-block px-4 py-2 rounded-lg bg-scroll-cream text-[#0a0a0a] text-xs font-semibold hover:bg-scroll-cream/90 transition-colors">
+            Sign in
+          </Link>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="px-5 py-4 border-b border-white/[0.04]">
         {replyingToComment && (
           <div className="flex items-center gap-2 mb-3 text-[11px] font-mono text-amaterasu-purple/70">
@@ -178,6 +190,7 @@ export default function Comments({ scenarioId }: CommentsProps) {
           <p className="mt-2 text-[11px] font-mono text-sharingan-red/70">{error}</p>
         )}
       </form>
+      )}
 
       {/* Comments list */}
       <div className="px-5 py-4">
