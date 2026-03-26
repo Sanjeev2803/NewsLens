@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useToast } from "@/components/ui/Toast";
 
 export default function SignupPage() {
   const { user, loading: authLoading } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,10 +64,12 @@ export default function SignupPage() {
 
     if (err) {
       setError(err.message);
+      toast(err.message, "error");
       setLoading(false);
       return;
     }
 
+    toast("Account created! Check your email", "success");
     setSuccess(true);
     setLoading(false);
   }

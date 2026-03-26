@@ -6,6 +6,7 @@ import { IconChartBar, IconArrowUp, IconCheck, IconLoader2 } from "@tabler/icons
 import Link from "next/link";
 import type { Outcome } from "@/lib/whatif/types";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useToast } from "@/components/ui/Toast";
 
 const OUTCOME_COLORS = [
   { bar: "#7B2FBE", glow: "rgba(123,47,190,0.15)", text: "#a855f7" },
@@ -24,6 +25,7 @@ interface OutcomePollProps {
 
 export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting = false }: OutcomePollProps) {
   const { user } = useAuth();
+  const toast = useToast();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
   const totalVotes = outcomes.reduce((sum, o) => sum + o.vote_count, 0);
@@ -67,7 +69,7 @@ export default function OutcomePoll({ outcomes, votedOutcomeId, onVote, voting =
               `}
               style={isVoted ? { boxShadow: `inset 0 0 0 1px ${colors.bar}` } : undefined}
               onClick={() => {
-                if (!user) { setShowSignIn(true); return; }
+                if (!user) { setShowSignIn(true); toast("Sign in to vote", "info"); return; }
                 canVote && onVote?.(outcome.id);
               }}
               onMouseEnter={() => setHoveredId(outcome.id)}

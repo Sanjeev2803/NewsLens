@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useToast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +53,19 @@ export default function LoginPage() {
 
     if (err) {
       setError(err.message);
+      toast(err.message, "error");
       setLoading(false);
       return;
     }
 
     // Don't navigate — show success state and let AuthProvider's
     // onAuthStateChange update the user, then useEffect redirects
+    toast("Signed in successfully", "success");
     setSuccess(true);
   }
 
   async function handleOAuth(provider: "google" | "github") {
+    toast("Redirecting to provider...", "loading");
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,

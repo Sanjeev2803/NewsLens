@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { IconSettings, IconLogout, IconPencil, IconChartBar, IconMessage, IconSparkles, IconClock, IconCheck } from "@tabler/icons-react";
@@ -15,6 +16,7 @@ type Tab = "activity" | "scenarios" | "settings";
 
 export default function ProfilePage() {
   const { user, loading, signOut } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("activity");
   const [profile, setProfile] = useState<any>(null);
@@ -76,11 +78,13 @@ export default function ProfilePage() {
     await supabase.from("profiles").update({ display_name: displayName.trim() || null }).eq("id", user.id);
     setSaving(false);
     setSaved(true);
+    toast("Profile updated", "success");
     setTimeout(() => setSaved(false), 2000);
   }
 
   async function handleSignOut() {
     await signOut();
+    toast("Signed out", "info");
     router.push("/");
   }
 

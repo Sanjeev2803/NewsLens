@@ -21,6 +21,7 @@ import Comments from "@/components/whatif/Comments";
 import type { Scenario, Outcome, TimelineNode } from "@/lib/whatif/types";
 import { CONTENT_TYPE_LABELS } from "@/lib/whatif/types";
 import { timeAgo } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -186,6 +187,7 @@ function formatInline(text: string): string {
 
 export default function ScenarioDetailClient() {
   const { id } = useParams<{ id: string }>();
+  const toast = useToast();
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -229,6 +231,7 @@ export default function ScenarioDetailClient() {
         const data = await res.json();
         setVotedOutcomeId(data.voted_outcome_id || outcomeId);
         localStorage.setItem(`whatif-vote-${id}`, data.voted_outcome_id || outcomeId);
+        toast("Vote recorded", "success");
         return;
       }
 
@@ -238,8 +241,9 @@ export default function ScenarioDetailClient() {
       setVotedOutcomeId(outcomeId);
       localStorage.setItem(`whatif-vote-${id}`, outcomeId);
       if (data.outcomes) setLiveOutcomes(data.outcomes);
+      toast("Vote recorded", "success");
     } catch {
-      // Silent fail — don't break the UI
+      toast("Failed to vote", "error");
     } finally {
       setVoting(false);
     }

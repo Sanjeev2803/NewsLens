@@ -4,6 +4,7 @@ import "./globals.css";
 import TransitionWrapper from "@/components/layout/TransitionWrapper";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -54,7 +55,9 @@ export default function RootLayout({
         </a>
         <ErrorBoundary>
           <AuthProvider>
-            <TransitionWrapper>{children}</TransitionWrapper>
+            <ToastProvider>
+              <TransitionWrapper>{children}</TransitionWrapper>
+            </ToastProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

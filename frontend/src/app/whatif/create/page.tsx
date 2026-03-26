@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useToast } from "@/components/ui/Toast";
 import Navbar from "@/components/layout/Navbar";
 import { IconArrowLeft, IconArrowRight, IconPlus, IconTrash, IconCheck, IconPencil, IconSparkles, IconLoader2 } from "@tabler/icons-react";
 
@@ -159,6 +160,7 @@ function StepStory({
   customTone: string; setCustomTone: (v: string) => void;
   onBack: () => void; onNext: () => void;
 }) {
+  const toast = useToast();
   const [preview, setPreview] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -167,6 +169,7 @@ function StepStory({
   async function handleGenerate() {
     setGenerating(true);
     setGenError(null);
+    toast("Generating with AI...", "loading");
     try {
       const res = await fetch("/api/whatif/generate", {
         method: "POST",
@@ -181,11 +184,14 @@ function StepStory({
       const data = await res.json();
       if (!res.ok) {
         setGenError(data.error || "Generation failed");
+        toast("Generation failed", "error");
       } else {
         setBody(data.body);
+        toast("Article generated", "success");
       }
     } catch {
       setGenError("Network error");
+      toast("Generation failed", "error");
     } finally {
       setGenerating(false);
     }
@@ -502,6 +508,7 @@ function StepReview({
 // ── Main Page ──
 export default function CreateScenarioPage() {
   const { user, loading } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
@@ -540,14 +547,18 @@ export default function CreateScenarioPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to create scenario");
+        const errMsg = data.error || "Failed to create scenario";
+        setError(errMsg);
+        toast(errMsg, "error");
         setSubmitting(false);
         return;
       }
 
+      toast("Prediction published!", "success");
       router.push(`/whatif/${data.id}`);
     } catch {
       setError("Network error — try again");
+      toast("Network error — try again", "error");
       setSubmitting(false);
     }
   }

@@ -6,6 +6,7 @@ import { IconMessageCircle, IconSend, IconCornerDownRight, IconLoader2, IconLock
 import { timeAgo } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import Link from "next/link";
+import { useToast } from "@/components/ui/Toast";
 
 interface Comment {
   id: string;
@@ -33,6 +34,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function Comments({ scenarioId, category }: CommentsProps) {
   const { user } = useAuth();
+  const toast = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -94,8 +96,11 @@ export default function Comments({ scenarioId, category }: CommentsProps) {
       setComments((prev) => [...prev, data.comment]);
       setBody("");
       setReplyTo(null);
+      toast("Comment posted", "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to post comment");
+      const msg = err instanceof Error ? err.message : "Failed to post comment";
+      setError(msg);
+      toast("Failed to post comment", "error");
     } finally {
       setSubmitting(false);
     }
