@@ -179,27 +179,37 @@ function CardIllustration({ category, title }: { category: string; title: string
 
 /*
   CoverImage: Shows AI-generated cartoon if available, falls back to SVG illustration.
+  The SVG illustration always renders as the base layer so there is never a blank space
+  — not while the image loads, not if it errors, not if the URL is null.
 */
 function CoverImage({ category, title, imageUrl }: { category: string; title: string; imageUrl?: string | null }) {
   const [imgError, setImgError] = useState(false);
-  const hasImage = imageUrl && !imgError;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const hasImage = !!imageUrl && !imgError;
 
   return (
     <>
-      {hasImage ? (
-        <div className="absolute inset-0">
+      {/* Always render SVG illustration as the base layer — visible while
+          the image loads or if it fails. This prevents blank card spaces. */}
+      <CardIllustration category={category} title={title} />
+
+      {hasImage && (
+        <div
+          className="absolute inset-0 z-[1] transition-opacity duration-300"
+          style={{ opacity: imgLoaded ? 1 : 0 }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl}
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
           />
           {/* Bottom vignette for text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/30 to-transparent" />
         </div>
-      ) : (
-        <CardIllustration category={category} title={title} />
       )}
     </>
   );

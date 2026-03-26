@@ -191,6 +191,7 @@ export default function ScenarioDetailClient() {
   const [error, setError] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [shareToast, setShareToast] = useState(false);
+  const [coverImgError, setCoverImgError] = useState(false);
 
   // Voting state
   const [votedOutcomeId, setVotedOutcomeId] = useState<string | null>(null);
@@ -398,8 +399,8 @@ export default function ScenarioDetailClient() {
           </div>
         </div>
 
-        {/* Cover image */}
-        {scenario.cover_image && (
+        {/* Cover image — hidden entirely if URL is broken/expired */}
+        {scenario.cover_image && !coverImgError && (
           <div className="px-4 md:px-6">
             <div className="max-w-4xl mx-auto mb-10">
               <div className="rounded-lg overflow-hidden">
@@ -410,6 +411,7 @@ export default function ScenarioDetailClient() {
                   className="w-full h-auto"
                   loading="eager"
                   style={{ aspectRatio: "16/9", objectFit: "cover" }}
+                  onError={() => setCoverImgError(true)}
                 />
               </div>
             </div>

@@ -97,7 +97,7 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm border border-white/[0.06] rounded-2xl bg-white/[0.02] p-8">
         <h1 className="text-3xl font-bold text-scroll-cream mb-2 text-center">
           Create Account
         </h1>
@@ -170,6 +170,30 @@ export default function SignupPage() {
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-scroll-cream placeholder-mist-gray/50 text-sm focus:outline-none focus:border-white/30 transition-colors"
               placeholder="Min 6 characters"
             />
+            {password.length > 0 && (
+              <div className="space-y-1 mt-2">
+                <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      password.length >= 8
+                        ? "w-full bg-green-500"
+                        : password.length >= 6
+                        ? "w-2/3 bg-orange-500"
+                        : "w-1/3 bg-red-500"
+                    }`}
+                  />
+                </div>
+                <p className={`text-[10px] ${
+                  password.length >= 8
+                    ? "text-green-400"
+                    : password.length >= 6
+                    ? "text-orange-400"
+                    : "text-red-400"
+                }`}>
+                  {password.length >= 8 ? "Strong password" : password.length >= 6 ? "Could be stronger" : "Too short"}
+                </p>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}

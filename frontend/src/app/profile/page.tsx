@@ -115,14 +115,14 @@ export default function ProfilePage() {
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-bold text-scroll-cream truncate">{name}</h1>
               <p className="text-sm text-mist-gray/50">@{profile?.username || "..."}</p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-mist-gray/30">
+              <div className="flex items-center gap-4 mt-2 text-xs text-mist-gray/50">
                 <span>{user.email}</span>
                 {joined && <span>Joined {joined}</span>}
               </div>
             </div>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/60 text-xs hover:bg-red-500/10 hover:text-red-400 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/80 text-xs hover:bg-red-500/10 hover:text-red-400 transition-colors flex-shrink-0"
             >
               <IconLogout size={13} /> Sign out
             </button>
@@ -137,7 +137,7 @@ export default function ProfilePage() {
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Icon size={14} className="text-mist-gray/30" />
+                  <Icon size={14} className="text-mist-gray/50" />
                   <span className="text-[10px] text-mist-gray/40 uppercase tracking-wider">{label}</span>
                 </div>
                 <div className="text-2xl font-bold text-scroll-cream">{value}</div>
@@ -175,7 +175,7 @@ export default function ProfilePage() {
               <section>
                 <h3 className="text-sm font-semibold text-scroll-cream/70 mb-3">Voting History</h3>
                 {votes.length === 0 ? (
-                  <p className="text-xs text-mist-gray/30 py-6 text-center">No votes yet. Head to <Link href="/whatif" className="text-scroll-cream/50 hover:underline">What If</Link> to make predictions.</p>
+                  <p className="text-xs text-mist-gray/50 py-6 text-center">No votes yet. Head to <Link href="/whatif" className="text-scroll-cream/70 hover:underline">What If</Link> to make predictions.</p>
                 ) : (
                   <div className="space-y-2">
                     {votes.map((v: any, i: number) => {
@@ -192,14 +192,14 @@ export default function ProfilePage() {
                               Predicted <span className="font-medium text-scroll-cream">{outcome?.label || "?"}</span>
                             </div>
                             {scenarioId ? (
-                              <Link href={`/whatif/${scenarioId}`} className="text-xs text-mist-gray/35 hover:text-mist-gray/55 transition-colors truncate block">
+                              <Link href={`/whatif/${scenarioId}`} className="text-xs text-mist-gray/55 hover:text-mist-gray/55 transition-colors truncate block">
                                 {scenarioTitle}
                               </Link>
                             ) : (
-                              <span className="text-xs text-mist-gray/35 truncate block">{scenarioTitle}</span>
+                              <span className="text-xs text-mist-gray/55 truncate block">{scenarioTitle}</span>
                             )}
                           </div>
-                          <span className="text-[10px] text-mist-gray/20 flex-shrink-0">
+                          <span className="text-[10px] text-mist-gray/45 flex-shrink-0">
                             {new Date(v.created_at).toLocaleDateString()}
                           </span>
                         </div>
@@ -213,7 +213,7 @@ export default function ProfilePage() {
               <section>
                 <h3 className="text-sm font-semibold text-scroll-cream/70 mb-3">Comment History</h3>
                 {comments.length === 0 ? (
-                  <p className="text-xs text-mist-gray/30 py-6 text-center">No comments yet.</p>
+                  <p className="text-xs text-mist-gray/50 py-6 text-center">No comments yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {comments.map((c: any) => {
@@ -226,8 +226,8 @@ export default function ProfilePage() {
                         >
                           <div className="text-sm text-scroll-cream/70 line-clamp-2">{c.body.slice(0, 150)}{c.body.length > 150 ? "..." : ""}</div>
                           <div className="flex items-center justify-between mt-1.5">
-                            <span className="text-[10px] text-mist-gray/30 truncate">on {scenarioTitle}</span>
-                            <span className="text-[10px] text-mist-gray/20">{new Date(c.created_at).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-mist-gray/50 truncate">on {scenarioTitle}</span>
+                            <span className="text-[10px] text-mist-gray/45">{new Date(c.created_at).toLocaleDateString()}</span>
                           </div>
                         </Link>
                       );
@@ -263,13 +263,13 @@ export default function ProfilePage() {
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-scroll-cream truncate">{s.title}</div>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-mist-gray/30 px-1.5 py-0.5 rounded bg-white/[0.03]">{s.category}</span>
-                          <span className="text-[10px] text-mist-gray/25">{new Date(s.created_at).toLocaleDateString()}</span>
+                          <span className="text-[10px] text-mist-gray/50 px-1.5 py-0.5 rounded bg-white/[0.03]">{s.category}</span>
+                          <span className="text-[10px] text-mist-gray/50">{new Date(s.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-4">
                         <div className="text-sm font-bold text-scroll-cream">{s.vote_count || 0}</div>
-                        <div className="text-[9px] text-mist-gray/30">votes</div>
+                        <div className="text-[9px] text-mist-gray/50">votes</div>
                       </div>
                     </Link>
                   ))}
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                 <h3 className="text-sm font-semibold text-scroll-cream/70 mb-4">Profile</h3>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="displayName" className="block text-xs text-scroll-cream/50 mb-1.5">Display Name</label>
+                    <label htmlFor="displayName" className="block text-xs text-scroll-cream/70 mb-1.5">Display Name</label>
                     <div className="flex gap-3">
                       <input
                         id="displayName"
@@ -308,7 +308,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs text-scroll-cream/50 mb-1.5">Username</label>
+                    <label className="block text-xs text-scroll-cream/70 mb-1.5">Username</label>
                     <div className="px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.04] text-sm text-mist-gray/50">
                       @{profile?.username || "..."}
                     </div>
@@ -336,10 +336,10 @@ export default function ProfilePage() {
 
               {/* Danger Zone */}
               <section>
-                <h3 className="text-sm font-semibold text-red-400/60 mb-4">Danger Zone</h3>
+                <h3 className="text-sm font-semibold text-red-400/80 mb-4">Danger Zone</h3>
                 <button
                   onClick={handleSignOut}
-                  className="px-4 py-2 rounded-lg border border-red-500/20 text-red-400/60 text-xs hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-red-500/20 text-red-400/80 text-xs hover:bg-red-500/10 hover:text-red-400 transition-colors"
                 >
                   Sign out of all devices
                 </button>
