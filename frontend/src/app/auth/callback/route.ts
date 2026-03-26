@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Auth error — redirect to login with error hint
-  return NextResponse.redirect(`${origin}/auth/login`);
+  // For implicit flow, the token is in the hash fragment — client-side handles it
+  // Redirect to profile and let AuthProvider pick up the session
+  return NextResponse.redirect(`${origin}/profile`);
 }
