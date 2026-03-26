@@ -12,7 +12,7 @@ import { isSafeUrl } from "@/lib/ssrf";
 */
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60; // Vercel Hobby: 10s, Pro: 300s — keep conservative
 
 // ── AI Image Generation (Gemini 2.5 Flash Image) ──
 // Images should be contextually relevant to the specific topic — show actual brands,

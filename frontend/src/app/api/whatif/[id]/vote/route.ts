@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 /*
-  POST /api/whatif/[id]/vote — anonymous voting on outcomes.
-  Uses service-role Supabase to bypass RLS.
-  Tracks by IP hash to prevent duplicate votes per scenario.
+  POST /api/whatif/[id]/vote — vote on outcomes.
+  Supports both authenticated users (user_id) and anonymous (IP hash).
+  Service-role Supabase bypasses RLS for anonymous votes.
 */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,15 +50,23 @@ export async function POST(
     return NextResponse.json({ error: "Invalid outcome_id" }, { status: 400 });
   }
 
-  const supabase = getServiceSupabase();
-  if (!supabase) {
+  const serviceDb = getServiceSupabase();
+  if (!serviceDb) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
 
-  const ipHash = hashIp(clientIp);
+  // Check if user is authenticated
+  let userId: string | null = null;
+  try {
+    const userDb = await createServerSupabase();
+    const { data: { user } } = await userDb.auth.getUser();
+    userId = user?.id ?? null;
+  } catch {
+    // Not authenticated — continue as anonymous
+  }
 
   // Verify the outcome belongs to this scenario
-  const { data: outcome } = await supabase
+  const { data: outcome } = await serviceDb
     .from("outcomes")
     .select("id, vote_count")
     .eq("id", outcomeId)
@@ -68,14 +77,14 @@ export async function POST(
     return NextResponse.json({ error: "Outcome not found" }, { status: 404 });
   }
 
-  // Check for duplicate vote (using anonymous_votes table if it exists)
-  // If table doesn't exist, we skip dedup and rely on localStorage client-side
-  try {
-    const { data: existing } = await supabase
-      .from("anonymous_votes")
+  // Check for duplicate vote
+  if (userId) {
+    // Authenticated: check by user_id in votes table
+    const { data: existing } = await serviceDb
+      .from("votes")
       .select("outcome_id")
       .eq("scenario_id", scenarioId)
-      .eq("ip_hash", ipHash)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (existing) {
@@ -85,36 +94,58 @@ export async function POST(
       );
     }
 
-    // Record the vote
-    await supabase
-      .from("anonymous_votes")
-      .insert({ scenario_id: scenarioId, outcome_id: outcomeId, ip_hash: ipHash });
-  } catch {
-    // Table might not exist yet — proceed without dedup
+    // Record authenticated vote
+    await serviceDb
+      .from("votes")
+      .insert({ scenario_id: scenarioId, outcome_id: outcomeId, user_id: userId });
+  } else {
+    // Anonymous: check by IP hash
+    const ipHash = hashIp(clientIp);
+    try {
+      const { data: existing } = await serviceDb
+        .from("anonymous_votes")
+        .select("outcome_id")
+        .eq("scenario_id", scenarioId)
+        .eq("ip_hash", ipHash)
+        .maybeSingle();
+
+      if (existing) {
+        return NextResponse.json(
+          { error: "Already voted", voted_outcome_id: existing.outcome_id },
+          { status: 409 }
+        );
+      }
+
+      await serviceDb
+        .from("anonymous_votes")
+        .insert({ scenario_id: scenarioId, outcome_id: outcomeId, ip_hash: ipHash });
+    } catch {
+      // Table might not exist — proceed without dedup
+    }
   }
 
   // Increment outcome vote_count
-  await supabase
+  await serviceDb
     .from("outcomes")
     .update({ vote_count: (outcome.vote_count || 0) + 1 })
     .eq("id", outcomeId);
 
   // Increment scenario vote_count
-  const { data: scenario } = await supabase
+  const { data: scenario } = await serviceDb
     .from("scenarios")
     .select("vote_count")
     .eq("id", scenarioId)
     .single();
 
   if (scenario) {
-    await supabase
+    await serviceDb
       .from("scenarios")
       .update({ vote_count: (scenario.vote_count || 0) + 1 })
       .eq("id", scenarioId);
   }
 
   // Return updated outcomes
-  const { data: updatedOutcomes } = await supabase
+  const { data: updatedOutcomes } = await serviceDb
     .from("outcomes")
     .select("id, label, description, vote_count")
     .eq("scenario_id", scenarioId)
@@ -123,5 +154,6 @@ export async function POST(
   return NextResponse.json({
     voted_outcome_id: outcomeId,
     outcomes: updatedOutcomes || [],
+    authenticated: !!userId,
   });
 }

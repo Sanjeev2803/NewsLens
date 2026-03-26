@@ -3,6 +3,7 @@ import { Inter, Rajdhani, JetBrains_Mono, Noto_Sans_JP, Geist } from "next/font/
 import "./globals.css";
 import TransitionWrapper from "@/components/layout/TransitionWrapper";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -52,7 +53,9 @@ export default function RootLayout({
           Skip to content
         </a>
         <ErrorBoundary>
-          <TransitionWrapper>{children}</TransitionWrapper>
+          <AuthProvider>
+            <TransitionWrapper>{children}</TransitionWrapper>
+          </AuthProvider>
         </ErrorBoundary>
       </body>
     </html>

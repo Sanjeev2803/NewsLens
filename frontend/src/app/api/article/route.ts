@@ -131,7 +131,7 @@ function decodeEntities(text: string): string {
 
 function extractText(html: string): string {
   // Remove scripts, styles, nav, footer, aside
-  let cleaned = html
+  const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<nav[\s\S]*?<\/nav>/gi, "")

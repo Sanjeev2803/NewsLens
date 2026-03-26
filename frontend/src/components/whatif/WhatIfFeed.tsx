@@ -15,7 +15,7 @@ interface WhatIfFeedProps {
 
 export default function WhatIfFeed({ category, sort, country = "in", onStatsUpdate }: WhatIfFeedProps) {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [total, setTotal] = useState(0);
+  const [, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);

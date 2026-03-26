@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   IconSword,
   IconTrendingUp,
-  IconWorld,
   IconSparkles,
   IconUserCircle,
   IconMenu2,
@@ -18,7 +17,6 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 const navItems = [
   { label: "Arena", href: "/", icon: IconSword },
   { label: "Trending", href: "/trending", icon: IconTrendingUp },
-  { label: "Globe", href: "/globe", icon: IconWorld },
   { label: "What If", href: "/whatif", icon: IconSparkles },
   { label: "Profile", href: "/profile", icon: IconUserCircle },
 ];

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
-import { cachedFetch } from "@/lib/cache";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         return cachedFetch(
           cacheKey,
           () => fetchAllNews({ category, country, lang, max: 10 }),
-          { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
+          CACHE_TTLS.batch
         ).then((data) => ({
           country,
           articles: (data.articles || []).slice(0, max),
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { ...batch, _meta: { failed, fetchedAt: Date.now() } },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } }
+      { headers: { "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=120" } }
     );
   } catch (err) {
     console.error("Batch news error:", err);

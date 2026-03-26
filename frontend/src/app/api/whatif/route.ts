@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Try local country first
-    let { data: localData, count: localCount } = await buildQuery(ipCountry)
+    const { data: localData, count: localCount } = await buildQuery(ipCountry)
       .range(offset, offset + limit - 1);
 
     let scenarios = localData || [];

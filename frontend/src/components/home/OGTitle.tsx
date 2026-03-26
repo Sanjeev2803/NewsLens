@@ -187,7 +187,7 @@ function MorphingLetter({
 
       // Each letter locks after a staggered delay (left to right)
       const lockDelay = index * 60; // 60ms apart, so N locks first, s locks last
-      let startTime = Date.now();
+      const startTime = Date.now();
 
       // Start with a mix — fast at first, slowing down
       intervalRef.current = setInterval(() => {

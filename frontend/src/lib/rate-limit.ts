@@ -57,6 +57,7 @@ interface WindowCounter {
 }
 
 const ipCounters = new Map<string, WindowCounter>();
+const MAX_TRACKED_IPS = 10_000; // Hard cap to prevent memory exhaustion under DDoS
 let globalCounter: WindowCounter = { count: 0, windowStart: Date.now() };
 
 function getCounter(counter: WindowCounter, now: number): WindowCounter {
@@ -77,7 +78,16 @@ if ((globalThis as any)[CLEANUP_KEY]) clearInterval((globalThis as any)[CLEANUP_
         ipCounters.delete(ip);
       }
     }
-  }, 30_000);
+    // Hard eviction if still over cap after expiry sweep
+    if (ipCounters.size > MAX_TRACKED_IPS) {
+      const excess = ipCounters.size - MAX_TRACKED_IPS;
+      const iter = ipCounters.keys();
+      for (let i = 0; i < excess; i++) {
+        const key = iter.next().value;
+        if (key) ipCounters.delete(key);
+      }
+    }
+  }, WINDOW_MS / 2); // Cleanup at half-window interval for tighter memory control
 }
 
 // ── Public API ──

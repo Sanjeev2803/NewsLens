@@ -88,7 +88,7 @@ export function hashStr(s: string): number {
 
 // ── Helper: generate title from theory voice + trend ──
 
-function generateTitle(trend: TrendInput, theory: Theory, mood: Mood): string {
+function generateTitle(trend: TrendInput, theory: Theory, _mood: Mood): string {
   const seed = hashStr(trend.title);
   const templates: Record<string, ((t: string) => string)[]> = {
     economics_strategy: [
@@ -137,9 +137,8 @@ function deriveContentType(theory: Theory): string {
 
 // ── Helper: generate editorial description ──
 
-function generateDescription(trend: TrendInput, theory: Theory, mood: Mood): string {
+function generateDescription(trend: TrendInput, theory: Theory, _mood: Mood): string {
   const seed = hashStr(trend.title);
-  const related = trend.relatedQueries[0] || trend.title;
   const descriptions: Record<string, string[]> = {
     economics_strategy: [
       `The strategic implications of ${trend.title} run deeper than the headlines suggest.`,

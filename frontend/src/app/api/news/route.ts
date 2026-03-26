@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { LANGUAGE_STATE_MAP, fetchGoogleTrends, getRegionalGeo, fetchRegionalFeeds } from "@/lib/regionalSources";
-import { cachedFetch, getCacheStats, setCacheEntry } from "@/lib/cache";
+import { cachedFetch, getCacheStats, setCacheEntry, CACHE_TTLS } from "@/lib/cache";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { enrichArticleImages } from "@/lib/imageEnrich";
 import { assembleNewsFeed } from "@/lib/newsAssemble";
@@ -72,14 +72,14 @@ export async function GET(req: NextRequest) {
           category,
         });
       },
-      { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 }
+      CACHE_TTLS.news
     );
 
     // ── Background image enrichment (runs after response is sent) ──
     // The cron pre-fetcher handles enrichment for popular combos.
     // For cold misses, enrich via after() so Vercel keeps the function alive.
     if (!enrichedKeys.has(cacheKey)) {
-      // Evict oldest key if at capacity
+      // Evict oldest key if at capacity (insertion-order eviction)
       if (enrichedKeys.size >= MAX_ENRICHED_KEYS) {
         const oldest = enrichedKeys.values().next().value;
         if (oldest) enrichedKeys.delete(oldest);
@@ -92,18 +92,19 @@ export async function GET(req: NextRequest) {
         try {
           const enriched = await enrichArticleImages(articlesSnapshot);
           const enrichedPayload = { ...result, articles: enriched };
-          await setCacheEntry(cacheKey, enrichedPayload, { ttlMs: 2 * 60 * 1000, staleGraceMs: 2 * 60 * 1000 });
+          await setCacheEntry(cacheKey, enrichedPayload, CACHE_TTLS.news);
         } catch (err) {
           console.warn("[enrich] background enrichment failed:", err);
         } finally {
-          setTimeout(() => enrichedKeys.delete(cacheKey), 3 * 60 * 1000);
+          // Cleanup after one cache cycle — no setTimeout needed, after() is fire-once
+          enrichedKeys.delete(cacheKey);
         }
       });
     }
 
     return NextResponse.json(
       { ...result, articles: result.articles.slice(0, max) },
-      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } }
+      { headers: { "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=120" } }
     );
   } catch (err) {
     console.error("News fetch error:", err);

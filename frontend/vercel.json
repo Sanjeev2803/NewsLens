@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/warm-cache",
-      "schedule": "*/3 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/generate-whatifs",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 */2 * * *"
     }
   ]
 }

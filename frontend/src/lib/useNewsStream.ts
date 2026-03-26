@@ -10,6 +10,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 */
 
 interface NewsStreamData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   articles: any[];
   totalArticles: number;
   freshCount: number;

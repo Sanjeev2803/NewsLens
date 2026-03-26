@@ -1,4 +1,4 @@
-import type { Theory, TrendInput, Mood, SectionBuilder, OutcomeSet } from "./types";
+import type { Theory, TrendInput, Mood, SectionBuilder } from "./types";
 
 // ── Utility: deterministic word picker ──────────────────────────────────────
 // Hashes the trend title to pick a stable word from the mood's temperature array.

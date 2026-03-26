@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { timeAgo } from "@/lib/utils";
+import { isSafeUrl } from "@/lib/ssrf";
 import {
   IconMapPin,
   IconArrowRight,
-  IconWorld,
   IconX,
   IconExternalLink,
   IconClock,
@@ -75,9 +75,6 @@ const MAP_WIDTH = 960;
 const MAP_HEIGHT = 500;
 
 
-function isSafeUrl(url: string) {
-  return /^https?:\/\//i.test(url);
-}
 
 /* Module-level geo cache to avoid refetching on every mount */
 let geoDataCache: FeatureCollection<Geometry> | null = null;
@@ -583,12 +580,6 @@ export default function NewsPulseMap() {
           <p className="text-[11px] text-white/30">Live global heatmap — tap thumbnails to explore</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <Link
-            href="/globe"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-heading text-white/50 hover:text-white/70 hover:bg-white/[0.06] transition-all"
-          >
-            <IconWorld size={14} /> Globe View
-          </Link>
           <div className="flex items-center gap-1.5">
             <motion.div
               className="w-1.5 h-1.5 rounded-full bg-emerald-400"

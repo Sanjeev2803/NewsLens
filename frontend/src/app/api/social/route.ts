@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllSocial } from "@/lib/socialSources";
-import { cachedFetch } from "@/lib/cache";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { isSafeUrl } from "@/lib/ssrf";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
@@ -84,10 +84,12 @@ export async function GET(req: NextRequest) {
 
         return data;
       },
-      { ttlMs: 5 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 } // 5min fresh, 10min stale grace
+      CACHE_TTLS.social
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=120" },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to fetch social data", details: String(err), posts: [], platforms: [] },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
 import { fetchAllSocial } from "@/lib/socialSources";
 import { fetchGoogleTrends, getRegionalGeo, getGeoForCountry, fetchRegionalFeeds, LANGUAGE_STATE_MAP } from "@/lib/regionalSources";
-import { setCacheEntry } from "@/lib/cache";
+import { setCacheEntry, CACHE_TTLS } from "@/lib/cache";
 import { enrichArticleImages } from "@/lib/imageEnrich";
 import { assembleNewsFeed } from "@/lib/newsAssemble";
 
@@ -23,7 +23,7 @@ import { assembleNewsFeed } from "@/lib/newsAssemble";
 */
 
 export const runtime = "nodejs";
-export const maxDuration = 120; // Allow up to 120s for parallel pre-fetching
+export const maxDuration = 60; // Vercel Hobby: 10s, Pro: 300s — keep conservative
 
 // Most popular country+lang+category combos to pre-fetch
 // Includes specific categories that users actually browse
@@ -44,9 +44,9 @@ const WARM_COMBOS = [
   { country: "gb", lang: "en", category: "sports" },
 ];
 
-// staleGraceMs raised to 5min so total Redis life = 7min (survives 2 missed cron cycles)
-const NEWS_TTL = { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 };
-const SOCIAL_TTL = { ttlMs: 3 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 };
+// Use shared TTL constants for consistency across cron + user routes
+const NEWS_TTL = CACHE_TTLS.news;
+const SOCIAL_TTL = CACHE_TTLS.social;
 
 export async function GET(req: NextRequest) {
   // ── Auth check — required in production, optional in dev ──

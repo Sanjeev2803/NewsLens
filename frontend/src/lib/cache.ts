@@ -13,6 +13,15 @@
 
 import { getSharedRedis } from "./redis";
 
+// ── Shared TTL presets — use these everywhere for consistency ──
+
+export const CACHE_TTLS = {
+  news:   { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },   // 2m fresh, 5m stale (7m total)
+  social: { ttlMs: 3 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },   // 3m fresh, 5m stale (8m total)
+  batch:  { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },   // aligned with news
+  whatif: null,                                                        // edge-only, no backend cache
+} as const;
+
 // ── Redis client (shared singleton from redis.ts) ──
 
 function getRedis() {
@@ -76,27 +85,6 @@ async function redisSet(key: string, data: unknown, createdAt: number, totalTtlM
     await r.set(key, { data, createdAt } satisfies RedisEntry, { ex: ttlSeconds });
   } catch (err) {
     console.warn("[cache] Redis SET failed:", err);
-  }
-}
-
-// NOTE: Non-atomic read-modify-write. Concurrent updates across instances may overwrite
-// each other. Acceptable for enrichment updates — worst case is a stale image URL for one
-// cache cycle. A Redis Lua script would fix this but adds complexity for minimal gain.
-async function redisUpdate(key: string, updater: (data: any) => any): Promise<void> {
-  const r = getRedis();
-  if (!r) return;
-
-  try {
-    const existing = await r.get<RedisEntry>(key);
-    if (existing) {
-      const ttl = await r.ttl(key);
-      const updated = { ...existing, data: updater(existing.data) };
-      if (ttl > 0) {
-        await r.set(key, updated, { ex: ttl });
-      }
-    }
-  } catch (err) {
-    console.warn("[cache] Redis UPDATE failed:", err);
   }
 }
 
@@ -187,9 +175,11 @@ export function cachedFetch<T>(
       return data;
     } catch (err) {
       // Serve stale data if available (thundering herd protection)
+      // Keep original createdAt so in-memory and Redis stay in sync
       const stale = memEntry || redisEntry;
       if (stale) {
-        memStore.set(key, { data: stale.data, createdAt: Date.now(), ttl: 30_000, staleGrace: 0 });
+        const staleCreatedAt = memEntry?.createdAt ?? (redisEntry as RedisEntry).createdAt;
+        memStore.set(key, { data: stale.data, createdAt: staleCreatedAt, ttl: ttlMs, staleGrace: staleGraceMs + 30_000 });
         return stale.data as T;
       }
       throw err;
@@ -200,17 +190,6 @@ export function cachedFetch<T>(
 
   inflight.set(key, promise);
   return promise;
-}
-
-/** Update an existing cache entry in-place (e.g., after background enrichment) */
-export function updateCacheEntry<T>(key: string, updater: (data: T) => T): void {
-  // Update in-memory
-  const entry = memStore.get(key) as MemEntry | undefined;
-  if (entry) {
-    entry.data = updater(entry.data as T);
-  }
-  // Update Redis (async, fire-and-forget)
-  redisUpdate(key, updater);
 }
 
 /** Diagnostic — call from API route with ?_cache=status */
@@ -235,31 +214,6 @@ export function getCacheStats() {
 /**
  * Directly set a cache entry (used by cron pre-fetcher to warm cache).
  */
-/** Clear a cache entry from both memory and Redis */
-export async function clearCacheEntry(key: string): Promise<void> {
-  memStore.delete(key);
-  const r = getRedis();
-  if (r) {
-    try { await r.del(key); } catch { /* non-critical */ }
-  }
-}
-
-/** Clear all news cache entries (useful for source config changes) */
-export async function clearNewsCacheEntries(): Promise<void> {
-  for (const key of memStore.keys()) {
-    if (key.startsWith("news:")) memStore.delete(key);
-  }
-  const r = getRedis();
-  if (r) {
-    try {
-      const keys = await r.keys("news:*");
-      if (keys.length > 0) {
-        for (const k of keys) await r.del(k);
-      }
-    } catch { /* non-critical */ }
-  }
-}
-
 export async function setCacheEntry<T>(
   key: string,
   data: T,

@@ -35,6 +35,12 @@ vi.mock("@/lib/regionalSources", () => ({
 
 vi.mock("@/lib/cache", () => ({
   setCacheEntry: vi.fn().mockResolvedValue(undefined),
+  CACHE_TTLS: {
+    news:   { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },
+    social: { ttlMs: 3 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },
+    batch:  { ttlMs: 2 * 60 * 1000, staleGraceMs: 5 * 60 * 1000 },
+    whatif: null,
+  },
 }));
 
 vi.mock("@/lib/imageEnrich", () => ({

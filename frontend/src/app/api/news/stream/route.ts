@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllNews } from "@/lib/newsSources";
-import { cachedFetch } from "@/lib/cache";
+import { cachedFetch, CACHE_TTLS } from "@/lib/cache";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 /*
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
           const result = await cachedFetch(
             cacheKey,
             () => fetchAllNews({ category, country, lang, max: 30 }),
-            { ttlMs: 3 * 60 * 1000, staleGraceMs: 10 * 60 * 1000 }
+            CACHE_TTLS.news
           );
           send("news", {
             articles: (result.articles || []).slice(0, max),
