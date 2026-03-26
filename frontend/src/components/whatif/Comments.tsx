@@ -18,9 +18,20 @@ interface Comment {
 
 interface CommentsProps {
   scenarioId: string;
+  category?: string;
 }
 
-export default function Comments({ scenarioId }: CommentsProps) {
+const CATEGORY_COLORS: Record<string, string> = {
+  politics: "text-rose-400 bg-rose-400/10 border-rose-400/20",
+  economy: "text-orange-400 bg-orange-400/10 border-orange-400/20",
+  tech: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",
+  society: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+  sports: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+  entertainment: "text-pink-400 bg-pink-400/10 border-pink-400/20",
+  general: "text-mist-gray bg-mist-gray/10 border-mist-gray/20",
+};
+
+export default function Comments({ scenarioId, category }: CommentsProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +127,15 @@ export default function Comments({ scenarioId }: CommentsProps) {
           {comments.length} {comments.length === 1 ? "comment" : "comments"}
         </span>
       </div>
+
+      {/* Category context */}
+      {category && (
+        <div className="px-5 py-2 border-b border-white/[0.04]">
+          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-heading border ${CATEGORY_COLORS[category] || CATEGORY_COLORS.general}`}>
+            Discussing in {category.charAt(0).toUpperCase() + category.slice(1)}
+          </span>
+        </div>
+      )}
 
       {/* Comment form — locked if not signed in */}
       {!user ? (

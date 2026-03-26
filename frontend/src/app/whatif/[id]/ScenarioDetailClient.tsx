@@ -529,7 +529,7 @@ export default function ScenarioDetailClient() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55 }}
             >
-              <Comments scenarioId={scenario.id} />
+              <Comments scenarioId={scenario.id} category={scenario.category} />
             </motion.div>
           </div>
         </div>
