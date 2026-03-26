@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import type { TrendingTopic } from "@/types/news";
 
 function TrendingBar({ topics, region }: { topics: TrendingTopic[]; region: string | null }) {
@@ -16,11 +17,11 @@ function TrendingBar({ topics, region }: { topics: TrendingTopic[]; region: stri
       </div>
       <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
         {topics.map((t, i) => (
-          <a key={`${t.title}-${i}`} href={t.url || `https://www.google.com/search?q=${encodeURIComponent(t.title)}`} target="_blank" rel="noopener noreferrer"
+          <Link key={`${t.title}-${i}`} href={`/trending/${encodeURIComponent(t.title)}`}
             className="flex-shrink-0 px-3 py-1.5 rounded-full bg-chakra-orange/5 border border-chakra-orange/10 text-xs font-heading text-scroll-cream hover:bg-chakra-orange/15 hover:border-chakra-orange/25 transition-all">
             <span className="text-chakra-orange mr-1.5">#{i + 1}</span>{t.title}
             {t.traffic && <span className="ml-1.5 text-[10px] text-mist-gray/40">{t.traffic}</span>}
-          </a>
+          </Link>
         ))}
       </div>
     </motion.div>

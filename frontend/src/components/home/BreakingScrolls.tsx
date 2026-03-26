@@ -223,17 +223,15 @@ function TrendingTicker({ topics }: { topics: TrendingTopic[] }) {
       </div>
       <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
         {topics.map((t, i) => (
-          <a
+          <Link
             key={`${t.title}-${i}`}
-            href={t.url || `https://www.google.com/search?q=${encodeURIComponent(t.title)}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/trending/${encodeURIComponent(t.title)}`}
             className="flex-shrink-0 px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/[0.05] text-xs font-heading text-white/70 hover:bg-chakra-orange/10 hover:border-chakra-orange/20 hover:text-white transition-all"
           >
             <span className="text-chakra-orange/60 mr-1.5 font-mono">#{i + 1}</span>
             {t.title}
             {t.traffic && <span className="ml-1.5 text-[10px] text-mist-gray/30">{t.traffic}</span>}
-          </a>
+          </Link>
         ))}
       </div>
     </motion.div>
