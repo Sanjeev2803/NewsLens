@@ -55,9 +55,27 @@ function getRankLabel(publishedAt: string): { text: string; color: string; bg: s
 }
 
 /* ── FEATURED HERO CARD ── */
+function useFallbackImage(title: string, hasImage: boolean) {
+  const [fallback, setFallback] = useState<string | null>(null);
+  useEffect(() => {
+    if (hasImage || fallback) return;
+    // Fetch a related image via Bing search proxy
+    const q = encodeURIComponent(title.slice(0, 80));
+    fetch(`https://www.bing.com/th?q=${q}&w=800&h=400&c=7&rs=1&p=0&pid=News`)
+      .then(res => {
+        if (res.ok) setFallback(res.url);
+      })
+      .catch(() => {});
+  }, [title, hasImage, fallback]);
+  return fallback;
+}
+
 function FeaturedStory({ article }: { article: Article }) {
   const [imgErr, setImgErr] = useState(false);
   const rank = getRankLabel(article.publishedAt);
+  const hasImage = !!(article.image && !imgErr);
+  const fallbackImg = useFallbackImage(article.title, hasImage);
+  const displayImage = hasImage ? article.image : fallbackImg;
 
   return (
     <Link href="/trending" className="group block">
@@ -68,11 +86,11 @@ function FeaturedStory({ article }: { article: Article }) {
         transition={{ duration: 0.6 }}
       >
         {/* Image */}
-        {article.image && !imgErr ? (
+        {displayImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={article.image}
+              src={displayImage}
               alt=""
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               onError={() => setImgErr(true)}
@@ -130,6 +148,9 @@ function FeaturedStory({ article }: { article: Article }) {
 function StoryCard({ article, index }: { article: Article; index: number }) {
   const [imgErr, setImgErr] = useState(false);
   const rank = getRankLabel(article.publishedAt);
+  const hasImage = !!(article.image && !imgErr);
+  const fallbackImg = useFallbackImage(article.title, hasImage);
+  const displayImage = hasImage ? article.image : fallbackImg;
 
   return (
     <Link href="/trending">
@@ -142,11 +163,11 @@ function StoryCard({ article, index }: { article: Article; index: number }) {
       >
         {/* Image */}
         <div className="relative aspect-[16/9] overflow-hidden">
-          {article.image && !imgErr ? (
+          {displayImage ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={article.image}
+                src={displayImage}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 onError={() => setImgErr(true)}
