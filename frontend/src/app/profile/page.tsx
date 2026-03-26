@@ -27,8 +27,10 @@ export default function ProfilePage() {
   const [stats, setStats] = useState({ votes: 0, comments: 0, scenarios: 0 });
 
   useEffect(() => {
+    // Wait 2 seconds before redirecting — gives AuthProvider time to
+    // process onAuthStateChange after OAuth or email login
     if (!loading && !user) {
-      const timer = setTimeout(() => router.push("/auth/login"), 500);
+      const timer = setTimeout(() => router.push("/auth/login"), 2000);
       return () => clearTimeout(timer);
     }
   }, [user, loading, router]);

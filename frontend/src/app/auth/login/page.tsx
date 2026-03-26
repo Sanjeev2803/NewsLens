@@ -12,19 +12,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  // Redirect if already logged in
+  // Redirect when auth state updates (after login or if already logged in)
   useEffect(() => {
     if (!authLoading && user) {
       router.replace("/profile");
     }
   }, [user, authLoading, router]);
 
-  if (authLoading || user) {
+  if (authLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
         <div className="text-mist-gray text-sm">Loading...</div>
+      </main>
+    );
+  }
+
+  if (user || success) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-scroll-cream/20 border-t-scroll-cream rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-scroll-cream">Signed in! Redirecting...</p>
+        </div>
       </main>
     );
   }
@@ -43,8 +55,9 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/profile");
-    router.refresh();
+    // Don't navigate — show success state and let AuthProvider's
+    // onAuthStateChange update the user, then useEffect redirects
+    setSuccess(true);
   }
 
   async function handleOAuth(provider: "google" | "github") {
