@@ -1,16 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export default function LoginPage() {
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/profile");
+    }
+  }, [user, authLoading, router]);
+
+  if (authLoading || user) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <div className="text-mist-gray text-sm">Loading...</div>
+      </main>
+    );
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
