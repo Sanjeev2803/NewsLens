@@ -81,7 +81,12 @@ function FeaturedStory({ article }: { article: Article }) {
             <div className="absolute inset-0 bg-gradient-to-r from-[#08080d]/70 via-transparent to-transparent" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#12121f] to-[#08080d]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1028] via-[#12121f] to-[#08080d]">
+            <div className="absolute inset-0 flex items-center justify-center opacity-[0.04]">
+              <IconBolt size={120} />
+            </div>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(230,57,70,0.06)_0%,transparent_70%)]" />
+          </div>
         )}
 
         {/* Live badge */}
@@ -150,8 +155,8 @@ function StoryCard({ article, index }: { article: Article; index: number }) {
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a10] via-transparent to-transparent opacity-80" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#12121f] to-[#0a0a10] flex items-center justify-center">
-              <IconBolt size={24} className="text-white/10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1028] via-[#12121f] to-[#0a0a10] flex items-center justify-center">
+              <IconBolt size={28} className="text-white/[0.06]" />
             </div>
           )}
           <div className={`absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-md border backdrop-blur-sm ${rank.bg}`}>
@@ -168,7 +173,7 @@ function StoryCard({ article, index }: { article: Article; index: number }) {
           <h3 className="text-[13px] font-heading font-semibold text-white/90 leading-snug line-clamp-2 mb-2 group-hover:text-chakra-orange transition-colors duration-300">
             {article.title}
           </h3>
-          <p className="text-[11px] text-mist-gray/40 leading-relaxed line-clamp-2 mt-auto">
+          <p className="text-[11px] text-mist-gray/60 leading-relaxed line-clamp-2 mt-auto">
             {article.description}
           </p>
         </div>
