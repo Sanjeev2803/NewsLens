@@ -49,8 +49,13 @@ export default function ProfilePage() {
   const [stats, setStats] = useState({ votes: 0, comments: 0, scenarios: 0 });
 
   useEffect(() => {
+    // Wait for auth to fully resolve before redirecting
     if (!loading && !user) {
-      router.push("/auth/login");
+      // Small delay to allow onAuthStateChange to fire after OAuth callback
+      const timer = setTimeout(() => {
+        router.push("/auth/login");
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [user, loading, router]);
 
