@@ -11,17 +11,19 @@ import {
   IconUserCircle,
   IconMenu2,
   IconX,
+  IconLogin,
 } from "@tabler/icons-react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 const navItems = [
   { label: "Arena", href: "/", icon: IconSword },
   { label: "Trending", href: "/trending", icon: IconTrendingUp },
   { label: "What If", href: "/whatif", icon: IconSparkles },
-  { label: "Profile", href: "/profile", icon: IconUserCircle },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -30,6 +32,13 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Profile or login depending on auth state
+  const profileItem = user
+    ? { label: user.user_metadata?.preferred_username || "Profile", href: "/profile", icon: IconUserCircle }
+    : { label: "Sign in", href: "/auth/login", icon: IconLogin };
+
+  const allItems = [...navItems, profileItem];
 
   return (
     <>
@@ -44,7 +53,7 @@ export default function Navbar() {
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-1">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {allItems.map(({ label, href, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
@@ -54,7 +63,14 @@ export default function Navbar() {
                   active ? "text-sharingan-red" : "text-mist-gray hover:text-scroll-cream"
                 }`}
               >
-                <Icon size={18} aria-hidden="true" />
+                {/* User avatar dot for logged-in profile */}
+                {href === "/profile" && user ? (
+                  <div className="w-5 h-5 rounded-full bg-sharingan-red/20 flex items-center justify-center text-[10px] font-bold text-sharingan-red">
+                    {(user.user_metadata?.preferred_username || user.email || "U")[0].toUpperCase()}
+                  </div>
+                ) : (
+                  <Icon size={18} aria-hidden="true" />
+                )}
                 <span>{label}</span>
                 {active && (
                   <motion.div
@@ -89,7 +105,7 @@ export default function Navbar() {
             className="fixed inset-0 top-14 z-40 backdrop-blur-md md:hidden bg-shadow-dark/95"
           >
             <div className="flex flex-col items-center gap-2 pt-8">
-              {navItems.map(({ label, href, icon: Icon }) => {
+              {allItems.map(({ label, href, icon: Icon }) => {
                 const active = pathname === href;
                 return (
                   <Link
@@ -114,7 +130,7 @@ export default function Navbar() {
 
       {/* Bottom tab bar on mobile */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden items-center justify-around backdrop-blur-md border-t py-2 bg-shadow-dark/95 border-mist-gray/10">
-        {navItems.map(({ label, href, icon: Icon }) => {
+        {allItems.map(({ label, href, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
@@ -125,7 +141,13 @@ export default function Navbar() {
               }`}
               aria-label={label}
             >
-              <Icon size={20} aria-hidden="true" />
+              {href === "/profile" && user ? (
+                <div className="w-5 h-5 rounded-full bg-sharingan-red/20 flex items-center justify-center text-[9px] font-bold text-sharingan-red">
+                  {(user.user_metadata?.preferred_username || user.email || "U")[0].toUpperCase()}
+                </div>
+              ) : (
+                <Icon size={20} aria-hidden="true" />
+              )}
               <span>{label}</span>
             </Link>
           );
